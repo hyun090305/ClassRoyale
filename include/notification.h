@@ -1,1 +1,0 @@
-/* notification.h - placeholder */
