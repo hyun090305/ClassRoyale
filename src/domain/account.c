@@ -1,9 +1,9 @@
-#include "domain/account.h"
+#include "../../include/domain/account.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/user.h"
+#include "../../include/domain/user.h"
 
 int account_get_by_user(const char *username, Bank *out) {
     if (!username || !out) {

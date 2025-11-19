@@ -1,15 +1,15 @@
-#include "ui/tui_teacher.h"
+#include "../../include/ui/tui_teacher.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "domain/account.h"
-#include "domain/admin.h"
-#include "domain/mission.h"
-#include "domain/shop.h"
-#include "domain/user.h"
-#include "ui/tui_common.h"
-#include "ui/tui_ncurses.h"
+#include "../../include/domain/account.h"
+#include "../../include/domain/admin.h"
+#include "../../include/domain/mission.h"
+#include "../../include/domain/shop.h"
+#include "../../include/domain/user.h"
+#include "../../include/ui/tui_common.h"
+#include "../../include/ui/tui_ncurses.h"
 
 static int collect_students(User *out[], int max_items) {
     int count = 0;

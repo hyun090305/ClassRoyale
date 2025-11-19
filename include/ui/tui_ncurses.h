@@ -4,7 +4,7 @@
 #include <ncurses.h>
 #include <stddef.h>
 
-#include "types.h"
+#include "../types.h"
 
 void tui_ncurses_init(void);
 void tui_ncurses_shutdown(void);

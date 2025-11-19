@@ -1,7 +1,7 @@
 #ifndef DOMAIN_ECONOMY_H
 #define DOMAIN_ECONOMY_H
 
-#include "types.h"
+#include "../types.h"
 
 int econ_deposit(Bank *acc, int amount);
 int econ_borrow(Bank *acc, int amount);

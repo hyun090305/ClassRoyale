@@ -1,11 +1,11 @@
-#include "ui/tui_stock.h"
+#include "../../include/ui/tui_stock.h"
 
 #include <stdlib.h>
 
-#include "domain/stock.h"
-#include "domain/user.h"
-#include "ui/tui_common.h"
-#include "ui/tui_ncurses.h"
+#include "../../include/domain/stock.h"
+#include "../../include/domain/user.h"
+#include "../../include/ui/tui_common.h"
+#include "../../include/ui/tui_ncurses.h"
 
 void tui_stock_show_market(User *user) {
     if (!user) {

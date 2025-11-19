@@ -1,11 +1,11 @@
-#include "ui/tui_login.h"
+#include "../../include/ui/tui_login.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "domain/user.h"
-#include "ui/tui_common.h"
-#include "ui/tui_ncurses.h"
+#include "../../include/domain/user.h"
+#include "../../include/ui/tui_common.h"
+#include "../../include/ui/tui_ncurses.h"
 
 static void draw_welcome(int highlight, const char *status_line) {
     erase();

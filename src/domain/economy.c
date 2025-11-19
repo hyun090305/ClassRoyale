@@ -1,6 +1,6 @@
-#include "domain/economy.h"
+#include "../../include/domain/economy.h"
 
-#include "domain/account.h"
+#include "../../include/domain/account.h"
 
 int econ_deposit(Bank *acc, int amount) {
     if (!acc || amount <= 0) {

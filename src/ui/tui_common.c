@@ -1,4 +1,4 @@
-#include "ui/tui_common.h"
+#include "../../include/ui/tui_common.h"
 
 #include <string.h>
 

@@ -1,10 +1,10 @@
-#include "domain/stock.h"
+#include "../../include/domain/stock.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/account.h"
-#include "domain/user.h"
+#include "../../include/domain/account.h"
+#include "../../include/domain/user.h"
 
 static Stock g_stocks[16];
 static int g_stock_count = 0;

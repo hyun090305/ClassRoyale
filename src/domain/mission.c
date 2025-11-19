@@ -1,10 +1,10 @@
-#include "domain/mission.h"
+#include "../../include/domain/mission.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/account.h"
-#include "domain/user.h"
+#include "../../include/domain/account.h"
+#include "../../include/domain/user.h"
 
 static Mission g_catalog[MAX_MISSIONS];
 static int g_catalog_count = 0;
