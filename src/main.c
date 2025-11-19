@@ -1,2 +1,7 @@
-/* main.c - placeholder */
-int main(void) { return 0; }
+#include "app.h"
+
+int main(void) {
+    app_bootstrap();
+    app_shutdown();
+    return 0;
+}
