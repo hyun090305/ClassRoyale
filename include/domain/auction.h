@@ -1,0 +1,1 @@
+/* auction.h - domain placeholder */

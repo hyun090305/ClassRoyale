@@ -1,1 +1,1 @@
-/* app.h - placeholder */
+/* app.h - central application lifecycle (placeholder) */

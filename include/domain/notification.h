@@ -1,0 +1,1 @@
+/* notification.h - domain placeholder */

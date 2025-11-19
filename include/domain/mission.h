@@ -1,0 +1,1 @@
+/* mission.h - domain placeholder */

@@ -1,1 +1,1 @@
-/* types.h - placeholder */
+/* types.h - shared domain types (placeholder) */

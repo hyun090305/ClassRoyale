@@ -1,0 +1,1 @@
+/* economy.h - domain placeholder */
