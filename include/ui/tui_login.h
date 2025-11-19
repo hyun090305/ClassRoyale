@@ -1,1 +1,8 @@
-/* tui_login.h - UI placeholder */
+#ifndef UI_TUI_LOGIN_H
+#define UI_TUI_LOGIN_H
+
+#include "types.h"
+
+User *tui_login_flow(int demo_mode);
+
+#endif /* UI_TUI_LOGIN_H */
