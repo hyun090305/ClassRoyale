@@ -1,15 +1,15 @@
 #include <stdio.h>
 
-enum rank { 
+typedef enum{ 
 STUDENT = 0, TEACHER 
-}; 
+}rank; 
 
 typedef struct {
     char *name;
     Bank bank;
     char *id;
     char *pw;
-    enum rank isadmin;
+    rank isadmin;
     Item items[10];
     int completed_missions;
     int total_missions;
