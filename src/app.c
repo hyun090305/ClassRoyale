@@ -1,6 +1,6 @@
-#include "app.h"
+#include "../include/app.h"
 
-#include "ui/tui.h"
+#include "../include/ui/tui.h"
 
 static int g_bootstrapped = 0;
 

@@ -1,8 +1,8 @@
-#include "ui/tui_auction.h"
+#include "../../include/ui/tui_auction.h"
 
-#include "domain/auction.h"
-#include "ui/tui_common.h"
-#include "ui/tui_ncurses.h"
+#include "../../include/domain/auction.h"
+#include "../../include/ui/tui_common.h"
+#include "../../include/ui/tui_ncurses.h"
 
 void tui_auction_show_house(User *user) {
     if (!user) {

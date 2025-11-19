@@ -1,4 +1,4 @@
-#include "domain/user.h"
+#include "../../include/domain/user.h"
 
 #include <stddef.h>
 #include <stdio.h>

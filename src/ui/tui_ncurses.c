@@ -1,4 +1,4 @@
-#include "ui/tui_ncurses.h"
+#include "../../include/ui/tui_ncurses.h"
 
 #include <locale.h>
 #include <stdlib.h>

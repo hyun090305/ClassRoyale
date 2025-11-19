@@ -1,14 +1,14 @@
-#include "ui/tui.h"
+#include "../../include/ui/tui.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "domain/user.h"
-#include "ui/tui_login.h"
-#include "ui/tui_ncurses.h"
-#include "ui/tui_student.h"
-#include "ui/tui_teacher.h"
+#include "../../include/domain/user.h"
+#include "../../include/ui/tui_login.h"
+#include "../../include/ui/tui_ncurses.h"
+#include "../../include/ui/tui_student.h"
+#include "../../include/ui/tui_teacher.h"
 
 void tui_run(void) {
     tui_ncurses_init();

@@ -1,10 +1,10 @@
-#include "domain/shop.h"
+#include "../../include/domain/shop.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/account.h"
-#include "domain/user.h"
+#include "../../include/domain/account.h"
+#include "../../include/domain/user.h"
 
 static Shop g_shop;
 static int g_shop_seeded = 0;

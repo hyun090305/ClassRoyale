@@ -1,9 +1,9 @@
-#include "domain/notification.h"
+#include "../../include/domain/notification.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/user.h"
+#include "../../include/domain/user.h"
 
 typedef struct Notification {
     char username[50];

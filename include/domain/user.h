@@ -1,7 +1,7 @@
 #ifndef DOMAIN_USER_H
 #define DOMAIN_USER_H
 
-#include "types.h"
+#include "../types.h"
 
 int user_register(const User *new_user);
 int user_auth(const char *username, const char *password);

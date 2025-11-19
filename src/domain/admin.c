@@ -1,11 +1,11 @@
-#include "domain/admin.h"
+#include "../../include/domain/admin.h"
 
 #include <stddef.h>
 #include <string.h>
 
-#include "domain/mission.h"
-#include "domain/notification.h"
-#include "domain/user.h"
+#include "../../include/domain/mission.h"
+#include "../../include/domain/notification.h"
+#include "../../include/domain/user.h"
 
 int admin_assign_mission(const char *username, const Mission *m) {
     if (!username || !m) {

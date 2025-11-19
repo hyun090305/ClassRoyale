@@ -1,10 +1,10 @@
-#include "domain/auction.h"
+#include "../../include/domain/auction.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "domain/account.h"
-#include "domain/user.h"
+#include "../../include/domain/account.h"
+#include "../../include/domain/user.h"
 
 static Item g_items[16];
 static int g_item_count = 0;
