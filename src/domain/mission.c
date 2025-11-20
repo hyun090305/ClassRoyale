@@ -17,14 +17,14 @@ static void ensure_seeded(void) {
     }
     Mission daily = {0};
     daily.id = g_next_id++;
-    snprintf(daily.name, sizeof(daily.name), "%s", "출석");
+    snprintf(daily.name, sizeof(daily.name), "%s", "Attendance");
     daily.type = 1;
     daily.reward = 100;
     g_catalog[g_catalog_count++] = daily;
 
     Mission quiz = {0};
     quiz.id = g_next_id++;
-    snprintf(quiz.name, sizeof(quiz.name), "%s", "퀴즈");
+    snprintf(quiz.name, sizeof(quiz.name), "%s", "Quiz");
     quiz.type = 2;
     quiz.reward = 200;
     g_catalog[g_catalog_count++] = quiz;
