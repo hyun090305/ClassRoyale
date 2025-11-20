@@ -8,12 +8,22 @@
 #include "../../include/ui/tui_ncurses.h"
 
 static void draw_welcome(int highlight, const char *status_line) {
-    erase();
+    static WINDOW *win = NULL;
     int width = 64;
     int height = 20;
     int starty = (LINES - height) / 2;
     int startx = (COLS - width) / 2;
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Class Royale");
+
+    if (!win) {
+        win = tui_common_create_box(height, width, starty, startx, "Class Royale");
+    } else {
+        werase(win);
+        box(win, 0, 0);
+        wattron(win, A_BOLD);
+        mvwprintw(win, 0, 2, " %s ", "Class Royale");
+        wattroff(win, A_BOLD);
+    }
+
     tui_ncurses_draw_logo(win, 2, 4);
     const char *menu[] = {"Login", "Register", "Exit"};
     tui_common_draw_menu(win, menu, 3, highlight);
@@ -23,7 +33,6 @@ static void draw_welcome(int highlight, const char *status_line) {
         mvwprintw(win, height - 4, 2, "%s", status_line);
     }
     wrefresh(win);
-    tui_common_destroy_box(win);
     refresh();
 }
 
