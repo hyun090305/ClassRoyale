@@ -35,11 +35,11 @@ static void ensure_seeded(void) {
         return;
     }
     memset(g_items, 0, sizeof(g_items));
-    snprintf(g_items[0].name, sizeof(g_items[0].name), "%s", "희귀 카드");
+    snprintf(g_items[0].name, sizeof(g_items[0].name), "%s", "Rare Card");
     g_items[0].cost = 1000;
     g_items[0].stock = 1;
 
-    snprintf(g_items[1].name, sizeof(g_items[1].name), "%s", "사인 공");
+    snprintf(g_items[1].name, sizeof(g_items[1].name), "%s", "Signed Ball");
     g_items[1].cost = 1500;
     g_items[1].stock = 1;
 

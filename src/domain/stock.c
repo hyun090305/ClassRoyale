@@ -19,13 +19,13 @@ static void ensure_seeded(void) {
     g_stocks[0].id = 1;
     g_stocks[0].base_price = 1000;
     g_stocks[0].current_price = 1200;
-    snprintf(g_stocks[0].news, sizeof(g_stocks[0].news), "%s", "Class Royale 지수 상승");
+    snprintf(g_stocks[0].news, sizeof(g_stocks[0].news), "%s", "Class Royale index rising");
 
     snprintf(g_stocks[1].name, sizeof(g_stocks[1].name), "%s", "EDU");
     g_stocks[1].id = 2;
     g_stocks[1].base_price = 800;
     g_stocks[1].current_price = 900;
-    snprintf(g_stocks[1].news, sizeof(g_stocks[1].news), "%s", "교육 테마 수혜");
+    snprintf(g_stocks[1].news, sizeof(g_stocks[1].news), "%s", "Education sector benefits");
 
     g_stock_count = 2;
     g_seeded = 1;
