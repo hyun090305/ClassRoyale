@@ -15,10 +15,10 @@ static void draw_welcome(int highlight, const char *status_line) {
     int startx = (COLS - width) / 2;
     WINDOW *win = tui_common_create_box(height, width, starty, startx, "Class Royale");
     tui_ncurses_draw_logo(win, 2, 4);
-    const char *menu[] = {"로그인", "회원가입", "종료"};
+    const char *menu[] = {"Login", "Register", "Exit"};
     tui_common_draw_menu(win, menu, 3, highlight);
-    mvwprintw(win, 10, 2, "학생들이 즐겁게 경제를 학습하는 Class Royale");
-    mvwprintw(win, height - 3, 2, "방향키 이동 · Enter 선택");
+    mvwprintw(win, 10, 2, "Class Royale - where students enjoy learning economics");
+    mvwprintw(win, height - 3, 2, "Use arrow keys, Enter to select");
     if (status_line && *status_line) {
         mvwprintw(win, height - 4, 2, "%s", status_line);
     }
@@ -28,7 +28,7 @@ static void draw_welcome(int highlight, const char *status_line) {
 }
 
 static rank_t prompt_role(WINDOW *form) {
-    const char *roles[] = {"학생", "교사"};
+    const char *roles[] = {"Student", "Teacher"};
     int highlight = 0;
     while (1) {
         for (int i = 0; i < 2; ++i) {
@@ -40,7 +40,7 @@ static rank_t prompt_role(WINDOW *form) {
                 wattroff(form, A_REVERSE);
             }
         }
-        mvwprintw(form, 5, 2, "역할 선택 (방향키·Enter)");
+        mvwprintw(form, 5, 2, "Select role (arrow keys, Enter)");
         wrefresh(form);
         int ch = wgetch(form);
         if (ch == KEY_UP || ch == KEY_LEFT) {
@@ -63,23 +63,23 @@ enum {
 static User *prompt_login(void) {
     int width = 60;
     int height = 12;
-    WINDOW *form = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "로그인");
+    WINDOW *form = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "Login");
     char username[NAME_FIELD_CAP];
     char password[PW_FIELD_CAP];
     memset(username, 0, sizeof(username));
     memset(password, 0, sizeof(password));
-    mvwprintw(form, 2, 2, "이름과 비밀번호를 입력하세요");
+    mvwprintw(form, 2, 2, "Please enter name and password");
     wrefresh(form);
-    if (!tui_ncurses_prompt_line(form, 4, 2, "이름", username, sizeof(username), 0)) {
+    if (!tui_ncurses_prompt_line(form, 4, 2, "Name", username, sizeof(username), 0)) {
         tui_common_destroy_box(form);
         return NULL;
     }
-    if (!tui_ncurses_prompt_line(form, 5, 2, "비밀번호", password, sizeof(password), 1)) {
+    if (!tui_ncurses_prompt_line(form, 5, 2, "Password", password, sizeof(password), 1)) {
         tui_common_destroy_box(form);
         return NULL;
     }
     if (!user_auth(username, password)) {
-        tui_ncurses_toast("로그인 실패 - 정보를 확인하세요", 1000);
+        tui_ncurses_toast("Login failed - check credentials", 1000);
         tui_common_destroy_box(form);
         return NULL;
     }
@@ -91,18 +91,18 @@ static User *prompt_login(void) {
 static void prompt_register(void) {
     int width = 60;
     int height = 14;
-    WINDOW *form = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "회원가입");
+    WINDOW *form = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "Register");
     char username[NAME_FIELD_CAP];
     char password[PW_FIELD_CAP];
     memset(username, 0, sizeof(username));
     memset(password, 0, sizeof(password));
-    mvwprintw(form, 2, 2, "새 계정을 만들어 주세요");
+    mvwprintw(form, 2, 2, "Create a new account");
     wrefresh(form);
-    if (!tui_ncurses_prompt_line(form, 3, 2, "이름", username, sizeof(username), 0)) {
+    if (!tui_ncurses_prompt_line(form, 3, 2, "Name", username, sizeof(username), 0)) {
         tui_common_destroy_box(form);
         return;
     }
-    if (!tui_ncurses_prompt_line(form, 4, 2, "비밀번호", password, sizeof(password), 1)) {
+    if (!tui_ncurses_prompt_line(form, 4, 2, "Password", password, sizeof(password), 1)) {
         tui_common_destroy_box(form);
         return;
     }
@@ -116,9 +116,9 @@ static void prompt_register(void) {
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
     newbie.bank.rating = 'B';
     if (user_register(&newbie)) {
-        tui_ncurses_toast("가입 완료! 이제 로그인하세요", 1200);
+        tui_ncurses_toast("Registration complete! Please log in", 1200);
     } else {
-        tui_ncurses_toast("가입 실패 - 중복 이름인지 확인", 1200);
+        tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }
     tui_common_destroy_box(form);
 }
@@ -143,10 +143,10 @@ User *tui_login_flow(int demo_mode) {
                 if (user) {
                     return user;
                 }
-                status = "로그인 실패";
+                status = "Login failed";
             } else if (selection == 1) {
                 prompt_register();
-                status = "회원가입 완료 시 다시 로그인";
+                status = "After registration, please log in";
             } else {
                 return NULL;
             }

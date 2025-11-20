@@ -16,13 +16,13 @@ static void ensure_seeded(void) {
     memset(&g_shop, 0, sizeof(g_shop));
     snprintf(g_shop.name, sizeof(g_shop.name), "%s", "Class Shop");
     g_shop.item_count = 3;
-    snprintf(g_shop.items[0].name, sizeof(g_shop.items[0].name), "%s", "연필");
+    snprintf(g_shop.items[0].name, sizeof(g_shop.items[0].name), "%s", "Pencil");
     g_shop.items[0].stock = 20;
     g_shop.items[0].cost = 100;
-    snprintf(g_shop.items[1].name, sizeof(g_shop.items[1].name), "%s", "노트");
+    snprintf(g_shop.items[1].name, sizeof(g_shop.items[1].name), "%s", "Notebook");
     g_shop.items[1].stock = 15;
     g_shop.items[1].cost = 200;
-    snprintf(g_shop.items[2].name, sizeof(g_shop.items[2].name), "%s", "배지");
+    snprintf(g_shop.items[2].name, sizeof(g_shop.items[2].name), "%s", "Badge");
     g_shop.items[2].stock = 5;
     g_shop.items[2].cost = 500;
     g_shop_seeded = 1;

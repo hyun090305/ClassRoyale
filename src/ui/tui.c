@@ -40,7 +40,7 @@ void tui_run(void) {
         if (demo_mode) {
             break;
         }
-        tui_ncurses_toast("로그아웃되었습니다. 아무 키나 눌러 계속", 800);
+        tui_ncurses_toast("Logged out. Press any key to continue", 800);
     }
 
     tui_ncurses_shutdown();

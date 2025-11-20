@@ -54,5 +54,5 @@ typedef struct {
 
 
 int main() {
-    printf("Hello, 생정파!");
+    printf("Hello, Class Royale!\n");
 }
