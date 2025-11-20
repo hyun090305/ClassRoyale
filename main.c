@@ -54,5 +54,9 @@ typedef struct {
 
 
 int main() {
+<<<<<<< HEAD
     printf("Class Royale");
+=======
+    printf("Hello, 생정파!");
+>>>>>>> dd66d473fc1f3fad500da80fa8c136223859f01e
 }
