@@ -1,11 +1,10 @@
-# users.csv (placeholder)
-ohtani,1212
-sungwoo,hihi
-heihei,1234
-ghgj,hcudu
 
-111,111
-222,222
-333,333
-333,333,1
+ohtani,1212,0
+sungwoo,hihi,0
+heihei,1234,0
+ghgj,hcudu,0
+
+111,111,0
+222,222,0
+333,333,0
 444,444,1

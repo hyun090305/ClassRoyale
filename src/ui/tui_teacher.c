@@ -177,6 +177,8 @@ void tui_teacher_loop(User *user) {
     if (!user) {
         return;
     }
+    /* Ensure blocking getch() behavior so dashboard doesn't redraw in a tight loop */
+    nodelay(stdscr, FALSE);
     const char *status = "Shortcut Keys";
     int running = 1;
     while (running) {

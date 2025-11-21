@@ -19,6 +19,16 @@ void tui_common_destroy_box(WINDOW *win) {
     if (!win) {
         return;
     }
+    /* Before deleting the window, copy its contents into stdscr
+     * so that subsequent calls to refresh() (which redraw stdscr)
+     * do not erase the visual contents produced by the box. We
+     * use copywin to map the window region onto the correct
+     * coordinates of stdscr. */
+    int wy, wx, h, w;
+    getbegyx(win, wy, wx);
+    getmaxyx(win, h, w);
+    /* copywin(src, dest, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay) */
+    copywin(win, stdscr, 0, 0, wy, wx, wy + h - 1, wx + w - 1, 0);
     delwin(win);
 }
 
