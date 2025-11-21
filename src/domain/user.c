@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 static User g_users[MAX_STUDENTS];
 static size_t g_user_count = 0;
@@ -46,9 +47,10 @@ static void seed_defaults(void) {
             continue;
         }
 
-        // "name,password" 파싱
+        // "name,password[,role]" 파싱 (role은 optional)
         char *name = strtok(line, ",");
         char *pw   = strtok(NULL, ",");
+        char *role_tok = strtok(NULL, ",");
 
         if (!name || !pw) {
             // 형식이 이상하면 스킵
@@ -65,6 +67,16 @@ static void seed_defaults(void) {
         // name, id, pw
         snprintf(u.name, sizeof(u.name), "%s", name); 
         snprintf(u.pw,   sizeof(u.pw),   "%s", pw);
+
+        // role 처리 (기본 STUDENT)
+        rank_t role = STUDENT;
+        if (role_tok) {
+            // 허용 형식: 숫자(1=TEACHER), 혹은 'T'/'t' 시작 또는 'teacher' 등
+            if (role_tok[0] == '1' || role_tok[0] == 'T' || role_tok[0] == 't') {
+                role = TEACHER;
+            }
+        }
+        u.isadmin = role;
 
         // bank.name 은 이름으로
         snprintf(u.bank.name, sizeof(u.bank.name), "%s", u.name);

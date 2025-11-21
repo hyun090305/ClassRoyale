@@ -130,8 +130,10 @@ static void prompt_register(void) {
     }
     tui_common_destroy_box(form);
     FILE *fp = fopen("data/users.csv", "a");
-    fprintf(fp, "\n%s,%s", username, password);
-    fclose(fp);
+    if (fp) {
+        fprintf(fp, "\n%s,%s,%d", username, password, (int)role);
+        fclose(fp);
+    }
 }
 
 User *tui_login_flow(void) {

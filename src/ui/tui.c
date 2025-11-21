@@ -24,7 +24,9 @@ void tui_run() {
         } else {
             tui_student_loop(user);
         }
-        tui_ncurses_toast("Logged out. Press any key to continue", 800);
+        tui_ncurses_toast("Logging out...", 800);
+        clear();
+        refresh();
     }
 
     tui_ncurses_shutdown();
