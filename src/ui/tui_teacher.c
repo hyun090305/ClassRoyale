@@ -173,7 +173,7 @@ static void handle_student_list(void) {
     tui_common_destroy_box(win);
 }
 
-void tui_teacher_loop(User *user, int demo_mode) {
+void tui_teacher_loop(User *user) {
     if (!user) {
         return;
     }
@@ -181,10 +181,6 @@ void tui_teacher_loop(User *user, int demo_mode) {
     int running = 1;
     while (running) {
         draw_teacher_dashboard(user, status);
-        if (demo_mode) {
-            napms(800);
-            break;
-        }
         int ch = getch();
         switch (ch) {
             case 'm':

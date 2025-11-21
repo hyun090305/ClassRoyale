@@ -134,10 +134,7 @@ static void prompt_register(void) {
     fclose(fp);
 }
 
-User *tui_login_flow(int demo_mode) {
-    if (demo_mode) {
-        return user_lookup("student");
-    }
+User *tui_login_flow(void) {
     int selection = 0;
     const int menu_count = 3;
     const char *status = "";

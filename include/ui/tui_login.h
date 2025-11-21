@@ -3,6 +3,6 @@
 
 #include "../types.h"
 
-User *tui_login_flow(int demo_mode);
+User *tui_login_flow(void);
 
 #endif /* UI_TUI_LOGIN_H */

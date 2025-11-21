@@ -3,6 +3,6 @@
 
 #include "../types.h"
 
-void tui_student_loop(User *user, int demo_mode);
+void tui_student_loop(User *user);
 
 #endif /* UI_TUI_STUDENT_H */

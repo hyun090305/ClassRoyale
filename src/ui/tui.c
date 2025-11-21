@@ -13,32 +13,16 @@
 void tui_run() {
     tui_ncurses_init();
     srand((unsigned)time(NULL));
-    const char *auto_mode = getenv("CLASSROYALE_AUTODEMO");
-    int demo_mode = auto_mode && *auto_mode;
-    User *auto_user = NULL;
-    if (demo_mode) {
-        if (auto_mode && strncmp(auto_mode, "teacher", 7) == 0) {
-            auto_user = user_lookup("teacher");
-        } else {
-            auto_user = user_lookup("student");
-        }
-    }
 
     while (1) {
-        User *user = auto_user;
-        if (!user) {
-            user = tui_login_flow(demo_mode);
-        }
+        User *user = tui_login_flow();
         if (!user) {
             break;
         }
         if (user->isadmin == TEACHER) {
-            tui_teacher_loop(user, demo_mode && user == auto_user);
+            tui_teacher_loop(user);
         } else {
-            tui_student_loop(user, demo_mode && user == auto_user);
-        }
-        if (demo_mode) {
-            break;
+            tui_student_loop(user);
         }
         tui_ncurses_toast("Logged out. Press any key to continue", 800);
     }
