@@ -82,8 +82,8 @@ struct Stock {
 struct User {
     char name[50];
     Bank bank;
-    char id[100];
     char pw[100];
+    char id[50];
     rank_t isadmin;
     Item items[10];
     int completed_missions;

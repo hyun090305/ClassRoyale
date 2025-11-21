@@ -24,16 +24,11 @@ static void copy_mission(Mission *dst, const Mission *src) {
 
 static void seed_defaults(void) {
 
-        if (g_seeded) {
-        return;
-    }
-    g_seeded = 1;
-
     // 전체 유저 배열 초기화
     memset(g_users, 0, sizeof(g_users));
     g_user_count = 0;
 
-    FILE *fp = fopen("users.csv", "r");
+    FILE *fp = fopen("data/users.csv", "r");
     if (!fp) {
         // 파일 못 열면 예전처럼 기본 teacher / student만 넣고 끝내기
         fprintf(stderr, "warning: could not open data.csv\n");
@@ -71,8 +66,6 @@ static void seed_defaults(void) {
         snprintf(u.name, sizeof(u.name), "%s", name); 
         snprintf(u.pw,   sizeof(u.pw),   "%s", pw);
 
-        // role 결정: 이름이 "teacher"면 TEACHER, 아니면 STUDENT
-        
         // bank.name 은 이름으로
         snprintf(u.bank.name, sizeof(u.bank.name), "%s", u.name);
 
