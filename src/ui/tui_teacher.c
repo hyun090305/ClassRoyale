@@ -177,7 +177,7 @@ void tui_teacher_loop(User *user) {
     if (!user) {
         return;
     }
-    const char *status = "m:Mission s:Students n:Notice q:Logout";
+    const char *status = "Shortcut Keys";
     int running = 1;
     while (running) {
         draw_teacher_dashboard(user, status);

@@ -279,7 +279,7 @@ void tui_student_loop(User *user) {
         return;
     }
     ensure_student_seed(user);
-    const char *status = "m:Missions s:Shop a:Account k:Stocks u:Auctions q:Logout";
+    const char *status = "Shortcut Keys";
     int running = 1;
     while (running) {
         draw_dashboard(user, status);
