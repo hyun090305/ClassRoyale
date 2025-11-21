@@ -27,7 +27,6 @@ static void draw_welcome(int highlight, const char *status_line) {
     tui_ncurses_draw_logo(win, 2, 4);
     const char *menu[] = {"Login", "Register", "Exit"};
     tui_common_draw_menu(win, menu, 3, highlight);
-    mvwprintw(win, 10, 2, "Class Royale - where students enjoy learning economics");
     mvwprintw(win, height - 3, 2, "Use arrow keys, Enter to select");
     if (status_line && *status_line) {
         mvwprintw(win, height - 4, 2, "%s", status_line);

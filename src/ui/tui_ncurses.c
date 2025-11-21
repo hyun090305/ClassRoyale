@@ -38,15 +38,19 @@ void tui_ncurses_draw_logo(WINDOW *win, int y, int x) {
         win = stdscr;
     }
     const char *logo[] = {
-        "  CLASS ROYALE",
-        "  --------------",
-        "  A playful economics game",
-        "  for students and teachers",
-        "  Simple ASCII logo mode",
-        ""
+
+"       _                                               _       ",
+"      | |                                             | |      ",
+"  ___ | |  __ _  ___  ___   _ __   ___   _   _   __ _ | |",
+" / __|| | / _` |/ __|/ __| |  __| / _ \\ | | | | / _  || |",
+"| (__ | || (_| |\\__ \\\\__ \\ | |   | (_) || |_| || (_| || |",
+" \\___||_| \\__,_||___/|___/ |_|    \\___/  \\__, | \\__,_||_|",
+"                                          __/ |                ",
+"                                         |___/                 ",
+
     };
     for (size_t i = 0; i < sizeof(logo) / sizeof(logo[0]); ++i) {
-        mvwprintw(win, y + (int)i, x, "%s", logo[i]);
+        mvwprintw(win, y + 4 + (int)i, x - 3 , "%s", logo[i]);
     }
     wrefresh(win);
 }
