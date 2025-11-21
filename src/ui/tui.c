@@ -10,7 +10,7 @@
 #include "../../include/ui/tui_student.h"
 #include "../../include/ui/tui_teacher.h"
 
-void tui_run(void) {
+void tui_run() {
     tui_ncurses_init();
     srand((unsigned)time(NULL));
     const char *auto_mode = getenv("CLASSROYALE_AUTODEMO");

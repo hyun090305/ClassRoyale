@@ -23,31 +23,72 @@ static void copy_mission(Mission *dst, const Mission *src) {
 }
 
 static void seed_defaults(void) {
-    if (g_seeded) {
+
+        if (g_seeded) {
+        return;
+    }
+    g_seeded = 1;
+
+    // 전체 유저 배열 초기화
+    memset(g_users, 0, sizeof(g_users));
+    g_user_count = 0;
+
+    FILE *fp = fopen("users.csv", "r");
+    if (!fp) {
+        // 파일 못 열면 예전처럼 기본 teacher / student만 넣고 끝내기
+        fprintf(stderr, "warning: could not open data.csv\n");
         return;
     }
 
-    User admin = {0};
-    snprintf(admin.name, sizeof(admin.name), "%s", "teacher");
-    snprintf(admin.id, sizeof(admin.id), "%s", "teacher");
-    snprintf(admin.pw, sizeof(admin.pw), "%s", "teacher");
-    admin.isadmin = TEACHER;
-    snprintf(admin.bank.name, sizeof(admin.bank.name), "%s", admin.name);
-    admin.bank.balance = 10000;
-    admin.bank.rating = 'A';
+    char line[256];
 
-    User student = {0};
-    snprintf(student.name, sizeof(student.name), "%s", "student");
-    snprintf(student.id, sizeof(student.id), "%s", "student");
-    snprintf(student.pw, sizeof(student.pw), "%s", "1234");
-    student.isadmin = STUDENT;
-    snprintf(student.bank.name, sizeof(student.bank.name), "%s", student.name);
-    student.bank.balance = 5000;
-    student.bank.rating = 'B';
+    while (fgets(line, sizeof(line), fp)) {
+        // 개행 제거
+        line[strcspn(line, "\r\n")] = '\0';
 
-    g_users[g_user_count++] = admin;
-    g_users[g_user_count++] = student;
-    g_seeded = 1;
+        // 빈 줄이면 스킵
+        if (line[0] == '\0') {
+            continue;
+        }
+
+        // "name,password" 파싱
+        char *name = strtok(line, ",");
+        char *pw   = strtok(NULL, ",");
+
+        if (!name || !pw) {
+            // 형식이 이상하면 스킵
+            continue;
+        }
+
+        if (g_user_count >= MAX_STUDENTS) {
+            // 더 이상 못 넣으면 중단
+            break;
+        }
+
+        User u = (User){0};
+
+        // name, id, pw
+        snprintf(u.name, sizeof(u.name), "%s", name); 
+        snprintf(u.pw,   sizeof(u.pw),   "%s", pw);
+
+        // role 결정: 이름이 "teacher"면 TEACHER, 아니면 STUDENT
+        
+        // bank.name 은 이름으로
+        snprintf(u.bank.name, sizeof(u.bank.name), "%s", u.name);
+
+        // 나머지 필드 기본값들
+        u.completed_missions = 0;
+        u.total_missions     = 0;
+        u.mission_count      = 0;
+        u.holding_count      = 0;
+        // u.items / u.missions / u.holdings 는 (User){0} 때문에 이미 0 초기화됨
+
+        g_users[g_user_count++] = u;
+    }
+
+    fclose(fp);
+
+
 }
 
 static int has_duplicate(const char *username) {
