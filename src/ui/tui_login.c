@@ -122,13 +122,16 @@ static void prompt_register(void) {
     newbie.isadmin = role;
     snprintf(newbie.bank.name, sizeof(newbie.bank.name), "%s", username);
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
-    newbie.bank.rating = 'B';
+    newbie.bank.rating = 'C';
     if (user_register(&newbie)) {
         tui_ncurses_toast("Registration complete! Please log in", 1200);
     } else {
         tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }
     tui_common_destroy_box(form);
+    FILE *fp = fopen("data/users.csv", "a");
+    fprintf(fp, "\n%s,%s", username, password);
+    fclose(fp);
 }
 
 User *tui_login_flow(int demo_mode) {
