@@ -52,6 +52,18 @@ void tui_common_draw_progress(WINDOW *win, int row, int col, int width, int perc
     if (!win || width <= 0) {
         return;
     }
+    int maxx = getmaxx(win);
+    if (col < 0) col = 0;
+    /* ensure there's room for the bar and the " 100%" text */
+    if (col >= maxx) {
+        return;
+    }
+    if (col + width + 5 > maxx) {
+        width = maxx - col - 5;
+    }
+    if (width <= 0) {
+        return;
+    }
     int filled = percent * width / 100;
     for (int i = 0; i < width; ++i) {
         mvwaddch(win, row, col + i, i < filled ? '#' : '-');

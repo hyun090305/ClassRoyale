@@ -61,17 +61,23 @@ static void render_shop_preview(WINDOW *win) {
     wrefresh(win);
 }
 
-static void render_news(WINDOW *win) {
+/* forward declare QOTD helper so render_news can check per-user state */
+static int qotd_is_solved(const char *name);
+
+static void render_news(WINDOW *win, const User *user) {
     const char *lines[] = {
         "Recent Notices",
         " - Mission #12 deadline D-1",
-        " - QOTD reward +20Cr",
         " - Seat passes sold out"
     };
     tui_common_print_multiline(win, 1, 2, lines, sizeof(lines) / sizeof(lines[0]));
-    mvwprintw(win, getmaxy(win) - 3, 2, "QOTD: How to save allowance?");
-    mvwprintw(win, getmaxy(win) - 2, 4, "1) Goals  2) Immediate spending  3) Random investment");
-    mvwprintw(win, getmaxy(win) - 1, 4, "[q] Respond on submission screen");
+
+    /* show QOTD hint only if the current user hasn't solved it yet */
+    if (user && !qotd_is_solved(user->name)) {
+        mvwprintw(win, getmaxy(win) - 4, 2, "QOTD: How to save allowance?");
+        mvwprintw(win, getmaxy(win) - 3, 4, "1) Goals  2) Immediate spending  3) Random investment");
+        mvwprintw(win, getmaxy(win) - 2, 4, "[d] Respond on submission screen");
+    }
     wrefresh(win);
 }
 
@@ -81,8 +87,14 @@ static void draw_dashboard(User *user, const char *status) {
     mvprintw(3, 2, "Name: %s | Balance: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.rating);
     mvprintw(4, 2, "Items owned: %d | Stocks owned: %d", 10, user->holding_count);
     int percent = user->total_missions > 0 ? (user->completed_missions * 100) / user->total_missions : 0;
-    mvprintw(5, 2, "Mission Completion Rate:");
-    tui_common_draw_progress(stdscr, 5, 18, COLS / 2, percent);
+    const char *mc_label = "Mission Completion Rate:";
+    int label_x = 2;
+    mvprintw(5, label_x, "%s", mc_label);
+    int progress_x = label_x + (int)strlen(mc_label) + 1; /* place progress after label + 1 space */
+    int progress_width = COLS - progress_x - 2; /* leave right margin */
+    if (progress_width <= 0) progress_width = 10; /* fallback */
+    if (progress_width > COLS / 2) progress_width = COLS / 2; /* sensible cap */
+    tui_common_draw_progress(stdscr, 5, progress_x, progress_width, percent);
 
     int col_width = COLS / 2 - 3;
     int box_height = (LINES - 10) / 2;
@@ -104,10 +116,10 @@ static void draw_dashboard(User *user, const char *status) {
     tui_common_destroy_box(shop_win);
 
     WINDOW *news_win = tui_common_create_box(box_height, col_width, 7 + box_height, col_width + 4, "Notices & QOTD");
-    render_news(news_win);
+    render_news(news_win, user);
     tui_common_destroy_box(news_win);
 
-    tui_common_draw_help("m:Missions s:Shop a:Account k:Stocks u:Auctions q:Logout");
+    tui_common_draw_help("m:Missions s:Shop a:Account k:Stocks u:Auctions d: QOTD q:Logout");
     tui_ncurses_draw_status(status);
     refresh();
 }
@@ -274,6 +286,101 @@ static void handle_account_view(User *user) {
     tui_common_destroy_box(win);
 }
 
+// --- QOTD viewer integration ---
+static char *qotd_solved_users[256];
+static int qotd_solved_count = 0;
+
+static int qotd_is_solved(const char *name) {
+    if (!name) return 0;
+    for (int i = 0; i < qotd_solved_count; ++i) {
+        if (qotd_solved_users[i] && strcmp(qotd_solved_users[i], name) == 0) return 1;
+    }
+    return 0;
+}
+
+static void qotd_mark_solved(const char *name) {
+    if (!name || qotd_solved_count >= (int)(sizeof(qotd_solved_users)/sizeof(qotd_solved_users[0]))) return;
+    for (int i = 0; i < qotd_solved_count; ++i) {
+        if (qotd_solved_users[i] && strcmp(qotd_solved_users[i], name) == 0) return;
+    }
+    qotd_solved_users[qotd_solved_count++] = strdup(name);
+}
+
+/* QOTD viewer:
+ * - open with 'd' from student menu
+ * - shows question and choices
+ * - enter number to answer
+ * - correct => award reward, mark solved, cannot reopen
+ * - wrong => show "Try again" at bottom and reduce reward by 5Cr
+ * - press 'q' to exit viewer
+ */
+static void handle_qotd_view(User *user) {
+    if (!user) return;
+    if (qotd_is_solved(user->name)) {
+        tui_ncurses_toast("QOTD already solved", 900);
+        return;
+    }
+
+    const char *question = "QOTD: How to save allowance?";
+    const char *opts[] = {
+        "1) Goals",
+        "2) Immediate spending",
+        "3) Random investment"
+    };
+    const int correct_choice = 1; /* 1-based index of correct option */
+    int reward = 20;
+
+    int height = 10;
+    int width = 60;
+    int starty = (LINES - height) / 2;
+    int startx = (COLS - width) / 2;
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Question of the Day (press q to close)");
+    keypad(win, TRUE);
+
+    int running = 1;
+    while (running) {
+        werase(win);
+        box(win, 0, 0);
+        mvwprintw(win, 1, 2, "%s", question);
+        for (int i = 0; i < (int)(sizeof(opts)/sizeof(opts[0])); ++i) {
+            mvwprintw(win, 3 + i, 4, "%s", opts[i]);
+        }
+        mvwprintw(win, height - 4, 2, "Current reward: %d Cr", reward);
+        mvwprintw(win, height - 3, 2, "Enter option number to answer, q to quit");
+        mvwprintw(win, height - 2, 2, ""); /* reserved for messages (Try again etc) */
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        if (ch == 'q' || ch == 27) {
+            break;
+        }
+        if (ch >= '1' && ch <= '9') {
+            int sel = ch - '0';
+            if (sel == correct_choice) {
+                user->bank.balance += reward;
+                qotd_mark_solved(user->name);
+                mvwprintw(win, height - 2, 2, "Correct! +%dCr awarded. Press any key.", reward);
+                wrefresh(win);
+                wgetch(win);
+                tui_ncurses_toast("Correct! Reward granted", 1000);
+                running = 0;
+                break;
+            } else {
+                reward -= 5;
+                if (reward < 0) reward = 0;
+                mvwprintw(win, height - 2, 2, "Try again - reward now %d Cr   ", reward);
+                wrefresh(win);
+                /* keep the message visible a bit longer inside the QOTD window */
+                napms(1200); /* 1200ms pause */
+                 /* continue loop so user can try again or press q */
+            }
+        }
+    }
+
+    tui_common_destroy_box(win);
+}
+// --- end QOTD integration ---
+
 void tui_student_loop(User *user) {
     if (!user) {
         return;
@@ -289,6 +396,11 @@ void tui_student_loop(User *user) {
             case 'M':
                 handle_mission_board(user);
                 status = "Complete with Enter in missions screen";
+                break;
+            case 'd':
+            case 'D':
+                handle_qotd_view(user);
+                status = "QOTD";
                 break;
             case 's':
             case 'S':
