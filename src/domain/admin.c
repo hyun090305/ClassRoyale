@@ -2,6 +2,9 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <time.h>
+
+#include "../../include/core/csv.h"
 
 #include "../../include/domain/mission.h"
 #include "../../include/domain/notification.h"
@@ -22,6 +25,11 @@ int admin_assign_mission(const char *username, const Mission *m) {
     *slot = *m;
     slot->completed = 0;
     user->total_missions += 1;
+    /* persist assignment to CSV */
+    csv_ensure_dir("data/missions");
+    char path[512];
+    snprintf(path, sizeof(path), "data/missions/%s.csv", username);
+    csv_append_row(path, "ASSIGN,%d,%s,%ld", slot->id, slot->name, time(NULL));
     return 1;
 }
 
