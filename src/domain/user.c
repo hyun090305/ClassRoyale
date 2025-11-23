@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #include "../../include/domain/mission.h"
 #include "../../include/core/csv.h"
