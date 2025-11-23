@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "../../include/domain/user.h"
+#include "../../include/domain/mission.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
 
@@ -92,6 +93,8 @@ static User *prompt_login(void) {
         return NULL;
     }
     User *user = user_lookup(username);
+    /* Populate user's missions from CSV on successful login */
+    mission_load_user(username, user);
     tui_common_destroy_box(form);
     return user;
 }
