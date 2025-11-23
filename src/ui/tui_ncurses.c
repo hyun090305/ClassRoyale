@@ -81,7 +81,7 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
     wmove(win, row, cur_col);
     wclrtoeol(win);
     wrefresh(win);
-    echo();
+    noecho();
     curs_set(1);
     int start_index = 0;
     if (buffer[0] != '\0') {
