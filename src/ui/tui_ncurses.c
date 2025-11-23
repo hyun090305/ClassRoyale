@@ -87,7 +87,7 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
     int ch;
     while ((ch = wgetch(win)) != '\n' && ch != '\r') {
         if (ch == KEY_BACKSPACE || ch == 127) {
-            if (index >= 0) {
+            if (index > 9) {
                 index--;
                 buffer[index] = '\0';
                 mvwaddch(win, row, cur_col + index, ' ');
