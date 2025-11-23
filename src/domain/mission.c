@@ -19,20 +19,41 @@ static void ensure_seeded(void) {
     if (g_seeded) {
         return;
     }
-    Mission daily = {0};
-    daily.id = g_next_id++;
-    snprintf(daily.name, sizeof(daily.name), "%s", "Attendance");
-    daily.type = 1;
-    daily.reward = 100;
-    g_catalog[g_catalog_count++] = daily;
-
-    Mission quiz = {0};
-    quiz.id = g_next_id++;
-    snprintf(quiz.name, sizeof(quiz.name), "%s", "Quiz");
-    quiz.type = 2;
-    quiz.reward = 200;
-    g_catalog[g_catalog_count++] = quiz;
-
+    /* Try to load persisted missions from data/missions.csv */
+    csv_ensure_dir("data");
+    char *buf = NULL;
+    size_t buflen = 0;
+    if (csv_read_last_lines("data/missions.csv", 10000, &buf, &buflen) && buf && buflen > 0) {
+        char *p = buf;
+        while (p && *p) {
+            char *nl = strchr(p, '\n');
+            if (nl) *nl = '\0';
+            /* format: CREATE,id,name,type,reward,ts */
+            if (strncmp(p, "CREATE,", 7) == 0) {
+                char *s = p + 7;
+                char *tok = strtok(s, ",");
+                if (tok) {
+                    int id = atoi(tok);
+                    char *name = strtok(NULL, ",");
+                    char *typ = strtok(NULL, ",");
+                    char *rew = strtok(NULL, ",");
+                    if (name && typ && rew && g_catalog_count < MAX_MISSIONS) {
+                        Mission *slot = &g_catalog[g_catalog_count++];
+                        memset(slot, 0, sizeof(*slot));
+                        slot->id = id;
+                        snprintf(slot->name, sizeof(slot->name), "%s", name);
+                        slot->type = atoi(typ);
+                        slot->reward = atoi(rew);
+                        slot->completed = 0;
+                        if (id >= g_next_id) g_next_id = id + 1;
+                    }
+                }
+            }
+            if (!nl) break;
+            p = nl + 1;
+        }
+        free(buf);
+    }
     g_seeded = 1;
 }
 
@@ -48,6 +69,16 @@ int mission_create(const Mission *m) {
     slot->type = m->type;
     slot->reward = m->reward;
     slot->completed = 0;
+    /* persist new mission to data/missions.csv */
+    csv_ensure_dir("data");
+    /* sanitize name by replacing any commas with space to keep CSV simple */
+    char name_safe[sizeof(slot->name)];
+    snprintf(name_safe, sizeof(name_safe), "%s", slot->name);
+    for (size_t i = 0; i < sizeof(name_safe); ++i) {
+        if (name_safe[i] == ',') name_safe[i] = ' ';
+        if (name_safe[i] == '\n' || name_safe[i] == '\r') name_safe[i] = ' ';
+    }
+    csv_append_row("data/missions.csv", "CREATE,%d,%s,%d,%d,%ld", slot->id, name_safe, slot->type, slot->reward, time(NULL));
     return 1;
 }
 
@@ -107,60 +138,75 @@ int mission_complete(const char *username, int mission_id) {
 
 int mission_load_user(const char *username, User *user) {
     if (!username || !user) return -1;
+    /* Ensure global catalog is loaded so we can populate user's mission list from it */
+    ensure_seeded();
     char path[512];
     snprintf(path, sizeof(path), "data/missions/%s.csv", username);
     char *buf = NULL;
     size_t buflen = 0;
-    if (!csv_read_last_lines(path, 1000, &buf, &buflen) || !buf) {
-        return 0; /* no file or empty */
-    }
-    /* parse lines in order (csv_read_last_lines returns last N lines in file order) */
-    int loaded = 0;
-    char *p = buf;
-    while (p && *p) {
-        char *nl = strchr(p, '\n');
-        if (nl) *nl = '\0';
-        /* format: ASSIGN,id,name,ts  or COMPLETE,id,ts */
-        if (strncmp(p, "ASSIGN,", 7) == 0) {
-            char *s = p + 7;
-            char *tok = strtok(s, ",");
-            if (tok) {
-                int id = atoi(tok);
-                char *name = strtok(NULL, ",");
-                if (!name) name = "(no-name)";
-                /* add to user's mission list if not present */
-                int found = 0;
-                for (int i = 0; i < user->mission_count; ++i) {
-                    if (user->missions[i].id == id) { found = 1; break; }
-                }
-                if (!found && user->mission_count < (int)(sizeof(user->missions)/sizeof(user->missions[0]))) {
-                    Mission *slot = &user->missions[user->mission_count++];
-                    memset(slot, 0, sizeof(*slot));
-                    slot->id = id;
-                    snprintf(slot->name, sizeof(slot->name), "%s", name);
-                    slot->completed = 0;
-                    loaded++;
-                }
-            }
-        } else if (strncmp(p, "COMPLETE,", 9) == 0) {
-            char *s = p + 9;
-            char *tok = strtok(s, ",");
-            if (tok) {
-                int id = atoi(tok);
-                for (int i = 0; i < user->mission_count; ++i) {
-                    if (user->missions[i].id == id) {
-                        if (!user->missions[i].completed) {
-                            user->missions[i].completed = 1;
-                            user->completed_missions += 1;
-                        }
+    /* Read per-user file (may contain ASSIGN and COMPLETE historically) */
+    csv_read_last_lines(path, 1000, &buf, &buflen);
+
+    /* Collect COMPLETE entries (id and ts) and ignore ASSIGN entries. */
+    int completed_ids[256];
+    long completed_ts[256];
+    int completed_count = 0;
+    if (buf && buflen > 0) {
+        char *p = buf;
+        while (p && *p) {
+            char *nl = strchr(p, '\n');
+            if (nl) *nl = '\0';
+            if (strncmp(p, "COMPLETE,", 9) == 0) {
+                char *s = p + 9;
+                char *tok = strtok(s, ",");
+                if (tok) {
+                    int id = atoi(tok);
+                    char *toks = strtok(NULL, ",");
+                    long ts = toks ? atol(toks) : 0;
+                    if (completed_count < (int)(sizeof(completed_ids)/sizeof(completed_ids[0]))) {
+                        completed_ids[completed_count] = id;
+                        completed_ts[completed_count] = ts;
+                        completed_count++;
                     }
                 }
             }
+            if (!nl) break;
+            p = nl + 1;
         }
-        if (!nl) break;
-        p = nl + 1;
+        free(buf);
     }
-    free(buf);
-    if (user->total_missions < user->mission_count) user->total_missions = user->mission_count;
-    return loaded;
+
+    /* Rebuild per-user file to contain only COMPLETE lines (drop ASSIGN) */
+    if (completed_count > 0) {
+        /* overwrite file with only COMPLETE entries */
+        FILE *f = fopen(path, "w");
+        if (f) {
+            for (int i = 0; i < completed_count; ++i) {
+                fprintf(f, "COMPLETE,%d,%ld\n", completed_ids[i], completed_ts[i]);
+            }
+            fclose(f);
+        }
+    } else {
+        /* no COMPLETE entries -> remove file if exists */
+        remove(path);
+    }
+
+    /* Populate user's mission list from global catalog and mark completions */
+    user->mission_count = 0;
+    user->completed_missions = 0;
+    user->total_missions = 0;
+    for (int i = 0; i < g_catalog_count && user->mission_count < (int)(sizeof(user->missions)/sizeof(user->missions[0])); ++i) {
+        Mission *g = &g_catalog[i];
+        Mission *slot = &user->missions[user->mission_count++];
+        *slot = *g;
+        /* Determine if user completed this mission */
+        int done = 0;
+        for (int j = 0; j < completed_count; ++j) {
+            if (completed_ids[j] == g->id) { done = 1; break; }
+        }
+        slot->completed = done;
+        if (done) user->completed_missions += 1;
+    }
+    user->total_missions = user->mission_count;
+    return user->mission_count;
 }

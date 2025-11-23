@@ -258,10 +258,10 @@ static void handle_mission_board(User *user) {
     while (running) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 0, 2, " Mission Board (Enter to complete/ a new mission/ q to close) ");
+        mvwprintw(win, 0, 2, " Mission Board (Enter to complete/ q to close) ");
         int available = user->mission_count;
         if (available == 0) {
-            mvwprintw(win, 2, 2, "No assigned missions. Press 'a' to accept a new mission!");
+            mvwprintw(win, 2, 2, "No assigned missions.");
         }
         for (int i = 0; i < available && i < height - 2; ++i) {
             if (i == highlight) {
@@ -283,17 +283,10 @@ static void handle_mission_board(User *user) {
                 highlight = (highlight + 1) % available;
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
-                if (mission_complete(user->name, user->missions[highlight].id)) {
+            if (mission_complete(user->name, user->missions[highlight].id)) {
                 tui_ncurses_toast("Mission complete! Reward granted", 900);
             } else {
                 tui_ncurses_toast("Failed to complete mission", 900);
-            }
-        } else if (ch == 'a' || ch == 'A') {
-            Mission open[8];
-            int count = 0;
-            if (mission_list_open(open, &count) && count > 0) {
-                admin_assign_mission(user->name, &open[rand() % count]);
-                tui_ncurses_toast("A new mission has been added", 900);
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
@@ -364,8 +357,8 @@ static void handle_shop_view(User *user) {
 }
 
 static void handle_account_view(User *user) {
-    int height = 12;
-    int width = 60;
+    int height = LINES - 4;
+    int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
                                         "Account Management (d deposit / b borrow / r repay / q close)");
     int running = 1;
