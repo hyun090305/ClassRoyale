@@ -133,10 +133,15 @@ static void prompt_register(void) {
     FILE *fp = fopen("data/users.csv", "a");
     if (fp) {
         fprintf(fp, "\n%s,%s,%d", username, password, (int)role);
-        fclose(fp);
     }
+    fclose(fp);
+    FILE *fp1 = fopen("data/accounts.csv", "a");
+    if (fp1) {
+         fprintf(fp1, "\n%s,%d,%c,", username, 1000,'C');
+    }
+    fclose(fp1);
+    draw_welcome(1, "After registration, please log in");
 }
-
 User *tui_login_flow(void) {
     int selection = 0;
     const int menu_count = 3;

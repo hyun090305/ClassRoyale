@@ -33,15 +33,17 @@ static void ensure_student_seed(User *user) {
         }
     }
     /* ensure per-user tx file exists and set bank metadata */
-    csv_ensure_dir("data/txs");
     snprintf(user->bank.name, sizeof(user->bank.name), "%s", user->name);
-    char path[512];
-    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
-    if (!user->bank.fp) {
-        user->bank.fp = fopen(path, "a+");
-    }
-}
 
+    // 로그 버퍼가 비어 있으면 초기 메시지 넣기 (원하면 생략해도 됨)
+    if (user->bank.log[0] == '\0') {
+        snprintf(
+            user->bank.log,
+            sizeof(user->bank.log),
+            "== Transaction log for %s ==\n",
+            user->name);
+}
+}
 // --- QOTD viewer integration ---
 static char *qotd_solved_users[256];
 static int qotd_solved_count = 0;

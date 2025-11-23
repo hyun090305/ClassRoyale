@@ -44,7 +44,7 @@ typedef struct StockHolding {
 struct Bank {
     char name[50];
     int balance;
-    FILE *fp;
+    char log[128];
     char rating;
 };
 
