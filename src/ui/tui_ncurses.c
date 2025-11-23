@@ -35,6 +35,8 @@ void tui_ncurses_shutdown(void) {
 
 void tui_ncurses_draw_logo(WINDOW *win, int y, int x) {
     if (!win) {
+
+        
         win = stdscr;
     }
     const char *logo[] = {
