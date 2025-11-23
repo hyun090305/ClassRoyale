@@ -283,10 +283,31 @@ static void handle_mission_board(User *user) {
                 highlight = (highlight + 1) % available;
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
-            if (mission_complete(user->name, user->missions[highlight].id)) {
+            int mid = user->missions[highlight].id;
+            if (mission_complete(user->name, mid)) {
                 tui_ncurses_toast("Mission complete! Reward granted", 900);
             } else {
-                tui_ncurses_toast("Failed to complete mission", 900);
+                /* Diagnose likely reason and show clearer message */
+                int found = 0;
+                int already = 0;
+                for (int ii = 0; ii < user->mission_count; ++ii) {
+                    if (user->missions[ii].id == mid) {
+                        found = 1;
+                        if (user->missions[ii].completed) already = 1;
+                        break;
+                    }
+                }
+                if (!found) {
+                    char msg[128];
+                    snprintf(msg, sizeof(msg), "Failed: mission #%d not assigned", mid);
+                    tui_ncurses_toast(msg, 1200);
+                } else if (already) {
+                    char msg[128];
+                    snprintf(msg, sizeof(msg), "Already completed: mission #%d", mid);
+                    tui_ncurses_toast(msg, 1200);
+                } else {
+                    tui_ncurses_toast("Failed to complete mission (internal)", 1200);
+                }
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
