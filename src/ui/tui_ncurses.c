@@ -83,11 +83,24 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
     wrefresh(win);
     echo();
     curs_set(1);
-    int index = 0;
+    int start_index = 0;
+    if (buffer[0] != '\0') {
+        start_index = (int)strlen(buffer);
+        if (start_index > (int)len - 1) {
+            start_index = (int)len - 1;
+            buffer[start_index] = '\0';
+        }
+        /* 화면에 미리 채워진 내용 출력 */
+        mvwprintw(win, row, cur_col, "%s", buffer);
+        wmove(win, row, cur_col + start_index);
+        wrefresh(win);
+    }
+
+    int index = start_index;
     int ch;
     while ((ch = wgetch(win)) != '\n' && ch != '\r') {
         if (ch == KEY_BACKSPACE || ch == 127) {
-            if (index > 9) {
+            if (index > start_index) {
                 index--;
                 buffer[index] = '\0';
                 mvwaddch(win, row, cur_col + index, ' ');
