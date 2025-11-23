@@ -5,6 +5,9 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "../../include/domain/mission.h"
+#include "../../include/core/csv.h"
+
 static User g_users[MAX_STUDENTS];
 static size_t g_user_count = 0;
 static int g_seeded = 0;
@@ -81,12 +84,27 @@ static void seed_defaults(void) {
         // bank.name 은 이름으로
         snprintf(u.bank.name, sizeof(u.bank.name), "%s", u.name);
 
-        // 나머지 필드 기본값들
-        u.completed_missions = 0;
-        u.total_missions     = 0;
-        u.mission_count      = 0;
-        u.holding_count      = 0;
-        // u.items / u.missions / u.holdings 는 (User){0} 때문에 이미 0 초기화됨
+        // 미션 목록과 완료 상태를 per-user CSV에서 불러오기
+        mission_load_user(u.name, &u);
+
+        // 은행 기본값 설정 (users.csv에는 balance 정보가 없으므로 role 기준 초기화)
+        if (u.bank.balance == 0) {
+            u.bank.balance = (u.isadmin == TEACHER) ? 5000 : 1000;
+        }
+        if (u.bank.rating == 0) {
+            u.bank.rating = 'C';
+        }
+        /* ensure per-user tx file exists and attach fp for writing */
+        csv_ensure_dir("data/txs");
+        char txpath[512];
+        snprintf(txpath, sizeof(txpath), "data/txs/%s.csv", u.name);
+        if (!u.bank.fp) {
+            u.bank.fp = fopen(txpath, "a+");
+        }
+
+        /* holdings/items already zeroed by (User){0}; ensure counts are sensible */
+        if (u.holding_count < 0) u.holding_count = 0;
+        if (u.mission_count < 0) u.mission_count = 0;
 
         g_users[g_user_count++] = u;
     }
