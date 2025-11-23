@@ -90,13 +90,6 @@ static void seed_defaults(void) {
             u.bank.rating = 'C';
         }
         /* ensure per-user tx file exists and attach fp for writing */
-        csv_ensure_dir("data/txs");
-        char txpath[512];
-        snprintf(txpath, sizeof(txpath), "data/txs/%s.csv", u.name);
-        if (!u.bank.fp) {
-            u.bank.fp = fopen(txpath, "a+");
-        }
-
         /* holdings/items already zeroed by (User){0}; ensure counts are sensible */
         if (u.holding_count < 0) u.holding_count = 0;
         if (u.mission_count < 0) u.mission_count = 0;
