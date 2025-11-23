@@ -1,5 +1,5 @@
 처음에 login/register 버튼과 메인 화면 겹침
-텍스트 backspace 입력 시 입력 범위 넘어감
+텍스트 backspace 입력 시 입력 범위 넘어감 -> 진행중
 글자 겹침
 teacher dashboard 구현 안됨
 로그인/비밀번호 저장소 기록 시스템 구현 안됨
