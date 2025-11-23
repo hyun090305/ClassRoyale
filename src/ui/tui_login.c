@@ -72,6 +72,7 @@ static User *prompt_login(void) {
     int width = 60;
     int height = 12;
     WINDOW *form = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "Login");
+    keypad(form,TRUE);
     char username[NAME_FIELD_CAP];
     char password[PW_FIELD_CAP];
     memset(username, 0, sizeof(username));
