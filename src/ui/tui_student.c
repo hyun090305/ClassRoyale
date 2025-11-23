@@ -363,12 +363,26 @@ static void handle_shop_view(User *user) {
         } else if (ch == '\n' || ch == '\r') {
             if (shop_buy(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Purchase complete", 800);
+                /* refresh the shop list to reflect updated stock */
+                if (shop_list(shops, &count) && count > 0) {
+                    shop = &shops[0];
+                    if (highlight >= shop->item_count) {
+                        highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+                    }
+                }
             } else {
                 tui_ncurses_toast("Purchase failed - check balance/stock", 800);
             }
         } else if (ch == 's' || ch == 'S') {
             if (shop_sell(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Sale complete", 800);
+                /* refresh the shop list after sale as well */
+                if (shop_list(shops, &count) && count > 0) {
+                    shop = &shops[0];
+                    if (highlight >= shop->item_count) {
+                        highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+                    }
+                }
             } else {
                 tui_ncurses_toast("Sale failed", 800);
             }

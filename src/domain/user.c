@@ -28,6 +28,8 @@ static void copy_mission(Mission *dst, const Mission *src) {
 }
 
 static void seed_defaults(void) {
+    if (g_seeded) return; /* already seeded */
+    g_seeded = 1;
 
     // 전체 유저 배열 초기화
     memset(g_users, 0, sizeof(g_users));
