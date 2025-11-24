@@ -239,3 +239,31 @@ int user_auth(const char *username, const char *password) {
     }
     return strncmp(user->pw, password, sizeof(user->pw)) == 0;
 }
+
+// Persist updated balance to data/accounts.csv (rewrites file from in-memory user table)
+int user_update_balance(const char *username, int new_balance) {
+    if (!username) return 0;
+    seed_defaults(); /* ensure in-memory users are loaded */
+
+    int found = 0;
+    for (size_t i = 0; i < g_user_count; ++i) {
+        if (strncmp(g_users[i].name, username, sizeof(g_users[i].name)) == 0) {
+            g_users[i].bank.balance = new_balance;
+            found = 1;
+            break;
+        }
+    }
+
+    /* ensure data dir exists and rewrite accounts.csv from current in-memory table */
+    csv_ensure_dir("data");
+    FILE *fp = fopen("data/accounts.csv", "w");
+    if (!fp) {
+        return found;
+    }
+    for (size_t i = 0; i < g_user_count; ++i) {
+        /* CSV format: name,balance,rating */
+        fprintf(fp, "%s,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating);
+    }
+    fclose(fp);
+    return found;
+}

@@ -128,6 +128,8 @@ static void handle_qotd_view(User *user) {
             if (sel == correct_choice) {
                 user->bank.balance += reward;
                 qotd_mark_solved(user->name);
+                /* persist balance change to accounts CSV */
+                user_update_balance(user->name, user->bank.balance);
                 mvwprintw(win, height - 2, 2, "Correct! +%dCr awarded. Press any key.", reward);
                 wrefresh(win);
                 wgetch(win);
@@ -299,6 +301,7 @@ static void handle_mission_board(User *user) {
             int mid = user->missions[highlight].id;
             if (mission_complete(user->name, mid)) {
                 tui_ncurses_toast("Mission complete! Reward granted", 900);
+                user_update_balance(user->name, user->bank.balance);
             } else {
                 /* Diagnose likely reason and show clearer message */
                 int found = 0;
@@ -374,6 +377,7 @@ static void handle_shop_view(User *user) {
         } else if (ch == '\n' || ch == '\r') {
             if (shop_buy(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Purchase complete", 800);
+                user_update_balance(user->name, user->bank.balance);
                 /* refresh the shop list to reflect updated stock */
                 if (shop_list(shops, &count) && count > 0) {
                     shop = &shops[0];
