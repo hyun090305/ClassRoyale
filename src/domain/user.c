@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #include "../../include/domain/mission.h"
 #include "../../include/core/csv.h"
@@ -27,6 +28,8 @@ static void copy_mission(Mission *dst, const Mission *src) {
 }
 
 static void seed_defaults(void) {
+    if (g_seeded) return; /* already seeded */
+    g_seeded = 1;
 
     // 전체 유저 배열 초기화
     memset(g_users, 0, sizeof(g_users));
@@ -44,29 +47,23 @@ static void seed_defaults(void) {
     while (fgets(line, sizeof(line), fp)) {
         // 개행 제거
         line[strcspn(line, "\r\n")] = '\0';
-
         // 빈 줄이면 스킵
         if (line[0] == '\0') {
             continue;
         }
-
         // "name,password[,role]" 파싱 (role은 optional)
         char *name = strtok(line, ",");
         char *pw   = strtok(NULL, ",");
         char *role_tok = strtok(NULL, ",");
-
         if (!name || !pw) {
             // 형식이 이상하면 스킵
             continue;
         }
-
         if (g_user_count >= MAX_STUDENTS) {
             // 더 이상 못 넣으면 중단
             break;
         }
-
         User u = (User){0};
-
         // name, id, pw
         snprintf(u.name, sizeof(u.name), "%s", name); 
         snprintf(u.pw,   sizeof(u.pw),   "%s", pw);
@@ -95,13 +92,6 @@ static void seed_defaults(void) {
             u.bank.rating = 'C';
         }
         /* ensure per-user tx file exists and attach fp for writing */
-        csv_ensure_dir("data/txs");
-        char txpath[512];
-        snprintf(txpath, sizeof(txpath), "data/txs/%s.csv", u.name);
-        if (!u.bank.fp) {
-            u.bank.fp = fopen(txpath, "a+");
-        }
-
         /* holdings/items already zeroed by (User){0}; ensure counts are sensible */
         if (u.holding_count < 0) u.holding_count = 0;
         if (u.mission_count < 0) u.mission_count = 0;
@@ -111,7 +101,62 @@ static void seed_defaults(void) {
 
     fclose(fp);
 
+    FILE *fp1 = fopen("data/accounts.csv", "r");
+    if (!fp1) {
+        fprintf(stderr, "warning: could not open accounts.csv\n");
+        return;
+    }
 
+    char line1[256];
+
+    while (fgets(line1, sizeof(line1), fp1)) {
+        // 개행 제거
+        line1[strcspn(line1, "\r\n")] = '\0';
+        // 빈 줄이면 스킵
+        if (line1[0] == '\0') {
+            continue;
+        }
+        // "name,password[,role]" 파싱 (role은 optional)
+        char *name = strtok(line1, ",");
+        char *balance = strtok(NULL, ",");
+        char *rating = strtok(NULL, ",");
+        char *log = strtok(NULL, ",");
+        if (!name || !balance || !rating) {
+            // 형식이 이상하면 스킵
+            continue;
+        }
+        if (g_user_count >= MAX_STUDENTS) {
+            // 더 이상 못 넣으면 중단
+            break;
+        }
+    for (int i = 0; i < g_user_count; ++i) {
+            if (strcmp(g_users[i].name, name) == 0) {
+                // balance / rating 숫자로 변환 (타입에 맞게 수정)
+                // balance, rating 은 문자열 → 정수 변환
+            g_users[i].bank.balance = atoi(balance);
+            g_users[i].bank.rating  = atoi(rating);
+
+            // bank.name 문자열 복사 (원하면)
+            snprintf(
+                g_users[i].bank.name,
+                sizeof(g_users[i].bank.name),
+                "%s",
+                name
+            );
+
+                // log 같은 문자열 필드가 있다면
+                if (log) {
+                    snprintf(g_users[i].bank.log,
+                             sizeof(g_users[i].bank.log),
+                             "%s", log);
+                }
+                // 찾았으면 더 돌 필요 없으니까 break
+                break;
+            }
+        }
+    }
+
+    fclose(fp1);
 }
 
 static int has_duplicate(const char *username) {

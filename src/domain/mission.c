@@ -15,6 +15,22 @@ static int g_catalog_count = 0;
 static int g_next_id = 1;
 static int g_seeded = 0;
 
+/* helpers to avoid duplicates in the global catalog */
+static int catalog_has_id(int id) {
+    for (int i = 0; i < g_catalog_count; ++i) {
+        if (g_catalog[i].id == id) return 1;
+    }
+    return 0;
+}
+
+static int catalog_has_name(const char *name) {
+    if (!name) return 0;
+    for (int i = 0; i < g_catalog_count; ++i) {
+        if (strcmp(g_catalog[i].name, name) == 0) return 1;
+    }
+    return 0;
+}
+
 static void ensure_seeded(void) {
     if (g_seeded) {
         return;
@@ -37,6 +53,13 @@ static void ensure_seeded(void) {
                     char *name = strtok(NULL, ",");
                     char *typ = strtok(NULL, ",");
                     char *rew = strtok(NULL, ",");
+                    /* skip if we already loaded this mission id (avoid duplicates from CSV) */
+                    if (catalog_has_id(id)) {
+                        /* advance to next line */
+                        if (!nl) break;
+                        p = nl + 1;
+                        continue;
+                    }
                     if (name && typ && rew && g_catalog_count < MAX_MISSIONS) {
                         Mission *slot = &g_catalog[g_catalog_count++];
                         memset(slot, 0, sizeof(*slot));
@@ -59,7 +82,8 @@ static void ensure_seeded(void) {
 
 int mission_create(const Mission *m) {
     ensure_seeded();
-    if (!m || g_catalog_count >= MAX_MISSIONS) {
+    /* prevent creating duplicate missions by name */
+    if (!m || g_catalog_count >= MAX_MISSIONS || catalog_has_name(m->name)) {
         return 0;
     }
     Mission *slot = &g_catalog[g_catalog_count++];

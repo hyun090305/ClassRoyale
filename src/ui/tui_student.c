@@ -19,6 +19,14 @@
 #include "../../include/domain/notification.h"
 #include "../../include/domain/account.h"
 
+static int user_has_mission(User *user, int mission_id) {
+    if (!user) return 0;
+    for (int i = 0; i < user->mission_count; ++i) {
+        if (user->missions[i].id == mission_id) return 1;
+    }
+    return 0;
+}
+
 static void ensure_student_seed(User *user) {
     if (!user || user->mission_count > 0) {
         return;
@@ -29,19 +37,24 @@ static void ensure_student_seed(User *user) {
     int count = 0;
     if (mission_list_open(open, &count)) {
         for (int i = 0; i < count && i < 4; ++i) {
-            admin_assign_mission(user->name, &open[i]);
+            /* avoid assigning a mission the user already has (prevents duplicates) */
+            if (!user_has_mission(user, open[i].id)) {
+                admin_assign_mission(user->name, &open[i]);
+            }
         }
     }
     /* ensure per-user tx file exists and set bank metadata */
-    csv_ensure_dir("data/txs");
     snprintf(user->bank.name, sizeof(user->bank.name), "%s", user->name);
-    char path[512];
-    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
-    if (!user->bank.fp) {
-        user->bank.fp = fopen(path, "a+");
-    }
-}
 
+    // 로그 버퍼가 비어 있으면 초기 메시지 넣기 (원하면 생략해도 됨)
+    if (user->bank.log[0] == '\0') {
+        snprintf(
+            user->bank.log,
+            sizeof(user->bank.log),
+            "== Transaction log for %s ==\n",
+            user->name);
+}
+}
 // --- QOTD viewer integration ---
 static char *qotd_solved_users[256];
 static int qotd_solved_count = 0;
@@ -361,12 +374,26 @@ static void handle_shop_view(User *user) {
         } else if (ch == '\n' || ch == '\r') {
             if (shop_buy(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Purchase complete", 800);
+                /* refresh the shop list to reflect updated stock */
+                if (shop_list(shops, &count) && count > 0) {
+                    shop = &shops[0];
+                    if (highlight >= shop->item_count) {
+                        highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+                    }
+                }
             } else {
                 tui_ncurses_toast("Purchase failed - check balance/stock", 800);
             }
         } else if (ch == 's' || ch == 'S') {
             if (shop_sell(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Sale complete", 800);
+                /* refresh the shop list after sale as well */
+                if (shop_list(shops, &count) && count > 0) {
+                    shop = &shops[0];
+                    if (highlight >= shop->item_count) {
+                        highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+                    }
+                }
             } else {
                 tui_ncurses_toast("Sale failed", 800);
             }

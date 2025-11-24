@@ -96,7 +96,7 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
         wrefresh(win);
     }
 
-    int index = start_index;
+    int index = 0;
     int ch;
     while ((ch = wgetch(win)) != '\n' && ch != '\r') {
         if (ch == KEY_BACKSPACE || ch == 127) {
