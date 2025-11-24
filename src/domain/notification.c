@@ -68,10 +68,69 @@ int notify_recent_to_buf(const char *username, int limit, char *buf, size_t bufl
         buf[0] = '\0';
         return 0;
     }
-    /* tmp contains newline-terminated lines; copy into buf */
-    size_t tocopy = tmplen < buflen-1 ? tmplen : buflen-1;
-    memcpy(buf, tmp, tocopy);
-    buf[tocopy] = '\0';
+    /* tmp contains newline-terminated lines like: "<ts>,<message>\n".
+       Parse each line, convert timestamp to human-friendly string and
+       append to `buf`. Return number of bytes written. */
+    size_t outpos = 0;
+    char *p = tmp;
+    time_t now = time(NULL);
+    while (p && *p && outpos + 1 < buflen) {
+        char *nl = strchr(p, '\n');
+        if (nl) *nl = '\0';
+        /* split "ts,msg" */
+        char *comma = strchr(p, ',');
+        long ts = 0;
+        char *msg = NULL;
+        if (comma) {
+            *comma = '\0';
+            ts = atol(p);
+            msg = comma + 1;
+        } else {
+            msg = p;
+        }
+
+        /* format relative time in Korean */
+        char timestr[64];
+        if (ts <= 0) {
+            snprintf(timestr, sizeof(timestr), "unknown");
+        } else {
+            long diff = (long)(now - (time_t)ts);
+            if (diff < 0) {
+                /* future? show absolute */
+                struct tm *tm = localtime((time_t *)&ts);
+                if (tm) strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M", tm);
+                else snprintf(timestr, sizeof(timestr), "%ld", ts);
+            } else if (diff < 60) {
+                snprintf(timestr, sizeof(timestr), "just now");
+            } else if (diff < 3600) {
+                snprintf(timestr, sizeof(timestr), "%ld minutes ago", diff / 60);
+            } else if (diff < 86400) {
+                snprintf(timestr, sizeof(timestr), "%ld hours ago", diff / 3600);
+            } else {
+                struct tm *tm = localtime((time_t *)&ts);
+                if (tm) strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M", tm);
+                else snprintf(timestr, sizeof(timestr), "%ld", ts);
+            }
+        }
+
+        /* append formatted line: "[timestr] message\n" */
+        int wrote = snprintf(buf + outpos, buflen - outpos, "[%s] %s\n", timestr, msg ? msg : "");
+        if (wrote < 0) break;
+        if ((size_t)wrote >= buflen - outpos) {
+            /* truncated: ensure NUL and break */
+            outpos = buflen - 1;
+            buf[outpos] = '\0';
+            break;
+        }
+        outpos += (size_t)wrote;
+
+        if (!nl) break;
+        p = nl + 1;
+    }
+
     free(tmp);
-    return (int)tocopy;
+    /* ensure NUL termination */
+    if (outpos >= buflen) outpos = buflen - 1;
+    buf[outpos] = '\0';
+    return (int)outpos;
 }

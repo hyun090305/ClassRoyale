@@ -82,9 +82,48 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
         buf[0] = '\0';
         return 0;
     }
-    size_t tocopy = tmplen < buflen-1 ? tmplen : buflen-1;
-    memcpy(buf, tmp, tocopy);
-    buf[tocopy] = '\0';
+    /* tmp contains lines like: "<ts>,<amount>,<balance>\n". Parse and
+       convert timestamp to readable datetime then append to `buf`. */
+    size_t outpos = 0;
+    char *p = tmp;
+    while (p && *p && outpos + 1 < buflen) {
+        char *nl = strchr(p, '\n');
+        if (nl) *nl = '\0';
+        /* parse ts,amount,balance */
+        char *tok1 = strtok(p, ",");
+        char *tok2 = tok1 ? strtok(NULL, ",") : NULL;
+        char *tok3 = tok2 ? strtok(NULL, ",") : NULL;
+        long ts = tok1 ? atol(tok1) : 0;
+        int amount = tok2 ? atoi(tok2) : 0;
+        int balance = tok3 ? atoi(tok3) : 0;
+
+        /* format absolute datetime */
+        char timestr[64];
+        if (ts <= 0) {
+            snprintf(timestr, sizeof(timestr), "unknown");
+        } else {
+            time_t tt = (time_t)ts;
+            struct tm *tm = localtime(&tt);
+            if (tm) strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M", tm);
+            else snprintf(timestr, sizeof(timestr), "%ld", ts);
+        }
+
+        /* format line: "[YYYY-MM-DD HH:MM] %+d Cr (bal %d)\n" */
+        int wrote = snprintf(buf + outpos, buflen - outpos, "[%s] %+d Cr (bal %d)\n", timestr, amount, balance);
+        if (wrote < 0) break;
+        if ((size_t)wrote >= buflen - outpos) {
+            outpos = buflen - 1;
+            buf[outpos] = '\0';
+            break;
+        }
+        outpos += (size_t)wrote;
+
+        if (!nl) break;
+        p = nl + 1;
+    }
+
     free(tmp);
-    return (int)tocopy;
+    if (outpos >= buflen) outpos = buflen - 1;
+    buf[outpos] = '\0';
+    return (int)outpos;
 }
