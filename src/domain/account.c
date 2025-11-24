@@ -33,7 +33,7 @@ int account_get_by_user(const char *username, Bank *out) {
     if (!user) {
         return 0;
     }
-    *out = user->bank;
+    *out = user->bank; /* includes new cash field */
     return 1;
 }
 
@@ -178,6 +178,42 @@ int account_add_tx(User *user, int amount, const char *reason) {
     char path[512];
     snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
     csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason_safe[0] ? reason_safe : "", amount, user->bank.balance);
+    return 1;
+}
+
+int account_withdraw_to_cash(User *user, int amount, const char *reason) {
+    if (!user || amount <= 0) return 0;
+    /* withdraw from deposit (balance) to cash */
+    if (!account_adjust(&user->bank, -amount)) return 0; /* reduce deposit */
+    /* increase cash on-hand */
+    long newcash = (long)user->bank.cash + amount;
+    if (newcash > INT_MAX) return 0;
+    user->bank.cash = (int)newcash;
+
+    /* append tx noting withdrawal */
+    csv_ensure_dir("data");
+    csv_ensure_dir("data/txs");
+    char path[512];
+    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+    /* reason will be visible and include withdrawal note */
+    csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason ? reason : "WITHDRAW", -amount, user->bank.balance);
+    return 1;
+}
+
+int account_deposit_from_cash(User *user, int amount, const char *reason) {
+    if (!user || amount <= 0) return 0;
+    if (user->bank.cash < amount) return 0;
+    user->bank.cash -= amount;
+    if (!account_adjust(&user->bank, amount)) {
+        /* rollback cash change on failure */
+        user->bank.cash += amount;
+        return 0;
+    }
+    csv_ensure_dir("data");
+    csv_ensure_dir("data/txs");
+    char path[512];
+    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+    csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason ? reason : "CASH_DEPOSIT", amount, user->bank.balance);
     return 1;
 }
 

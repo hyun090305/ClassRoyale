@@ -13,18 +13,43 @@ static void ensure_seeded(void) {
     if (g_shop_seeded) {
         return;
     }
+
     memset(&g_shop, 0, sizeof(g_shop));
     snprintf(g_shop.name, sizeof(g_shop.name), "%s", "Class Shop");
-    g_shop.item_count = 3;
-    snprintf(g_shop.items[0].name, sizeof(g_shop.items[0].name), "%s", "Pencil");
-    g_shop.items[0].stock = 20;
-    g_shop.items[0].cost = 100;
-    snprintf(g_shop.items[1].name, sizeof(g_shop.items[1].name), "%s", "Notebook");
-    g_shop.items[1].stock = 15;
-    g_shop.items[1].cost = 200;
-    snprintf(g_shop.items[2].name, sizeof(g_shop.items[2].name), "%s", "Badge");
-    g_shop.items[2].stock = 5;
-    g_shop.items[2].cost = 500;
+
+    FILE *fp = fopen("data/items.csv", "r");
+    if (!fp) {
+        g_shop.item_count = 0;
+        g_shop_seeded = 1;
+        return;
+    }
+
+    char line[256];
+    int idx = 0;
+    size_t max_items = sizeof(g_shop.items) / sizeof(g_shop.items[0]);
+
+    while (idx < (int)max_items && fgets(line, sizeof(line), fp)) {
+        char name[64];
+        int stock;
+        int cost;
+
+        /* "이름,재고,가격" 형태의 줄만 파싱 */
+        if (sscanf(line, "%63[^,],%d,%d", name, &stock, &cost) != 3) {
+            /* 헤더 줄이나 잘못된 줄은 그냥 건너뜀 */
+            continue;
+        }
+
+        snprintf(g_shop.items[idx].name,
+                 sizeof(g_shop.items[idx].name),
+                 "%s", name);
+        g_shop.items[idx].stock = stock;
+        g_shop.items[idx].cost  = cost;
+
+        idx++;
+    }
+
+    fclose(fp);
+    g_shop.item_count = idx;
     g_shop_seeded = 1;
 }
 

@@ -43,7 +43,8 @@ typedef struct StockHolding {
 
 struct Bank {
     char name[50];
-    int balance;
+    int balance; /* deposit/bank balance (backward-compatible) */
+    int cash;   /* physical/portable cash (new) */
     char log[128];
     char rating;
 };
