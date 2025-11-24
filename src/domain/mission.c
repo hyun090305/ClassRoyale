@@ -151,7 +151,12 @@ int mission_complete(const char *username, int mission_id) {
     if (user->total_missions < user->completed_missions) {
         user->total_missions = user->completed_missions;
     }
-    account_adjust(&user->bank, user_mission->reward);
+    /* adjust balance and persist transaction with reason including mission id */
+    {
+        char reason[64];
+        snprintf(reason, sizeof(reason), "MISSION_COMPLETE:%d", mission_id);
+        account_add_tx(user, user_mission->reward, reason);
+    }
     /* persist completion to per-user missions CSV */
     csv_ensure_dir("data/missions");
     char path[512];

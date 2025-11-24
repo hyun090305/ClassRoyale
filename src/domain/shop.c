@@ -91,7 +91,7 @@ int shop_buy(const char *username, const Item *item, int qty) {
         return 0;
     }
     int total_cost = store_item->cost * qty;
-    if (!account_adjust(&user->bank, -total_cost)) {
+    if (!account_add_tx(user, -total_cost, store_item->name)) {
         return 0;
     }
     if (store_item->stock >= 0) {
@@ -99,7 +99,8 @@ int shop_buy(const char *username, const Item *item, int qty) {
     }
     Item *owned = find_or_create_user_item(user, store_item->name);
     if (!owned) {
-        account_adjust(&user->bank, total_cost);
+        /* refund and record reason */
+        account_add_tx(user, total_cost, "SHOP_REFUND");
         return 0;
     }
     owned->stock += qty;
@@ -138,7 +139,7 @@ int shop_sell(const char *username, const Item *item, int qty) {
     }
     owned->stock -= qty;
     int payment = store_item->cost * qty;
-    account_adjust(&user->bank, payment);
+    account_add_tx(user, payment, "SHOP_SELL");
     if (store_item->stock >= 0) {
         store_item->stock += qty;
     }

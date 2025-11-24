@@ -158,10 +158,10 @@ static void handle_student_list(void) {
         } else if (ch == KEY_DOWN) {
             highlight = (highlight + 1) % count;
         } else if (ch == '+' || ch == '=') {
-            account_adjust(&students[highlight]->bank, 50);
+            account_add_tx(students[highlight], 50, "ADMIN_GRANT");
             tui_ncurses_toast("+50Cr granted", 700);
         } else if (ch == '-' || ch == '_') {
-            if (!account_adjust(&students[highlight]->bank, -50)) {
+            if (!account_add_tx(students[highlight], -50, "ADMIN_DEDUCT")) {
                 tui_ncurses_toast("Deduction failed", 700);
             } else {
                 tui_ncurses_toast("-50Cr deducted", 700);

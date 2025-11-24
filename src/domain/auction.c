@@ -82,7 +82,7 @@ int auction_deal(const char *username, const Item *item, int bid_price, int buyo
         if (auction_item->stock <= 0) {
             return 0;
         }
-        if (!account_adjust(&user->bank, -auction_item->cost)) {
+        if (!account_add_tx(user, -auction_item->cost, "AUCTION_BUYOUT")) {
             return 0;
         }
         auction_item->stock -= 1;

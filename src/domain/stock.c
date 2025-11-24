@@ -93,12 +93,12 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
     }
     if (is_buy) {
         int cost = stock->current_price * qty;
-        if (!account_adjust(&user->bank, -cost)) {
+        if (!account_add_tx(user, -cost, symbol)) {
             return 0;
         }
         StockHolding *holding = find_or_create_holding(user, symbol);
         if (!holding) {
-            account_adjust(&user->bank, cost);
+            account_add_tx(user, cost, "STOCK_REFUND");
             return 0;
         }
         holding->qty += qty;
@@ -109,7 +109,7 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
         }
         holding->qty -= qty;
         int revenue = stock->current_price * qty;
-        account_adjust(&user->bank, revenue);
+        account_add_tx(user, revenue, "STOCK_SELL");
     }
     stock->previous_price = stock->current_price;
     stock->current_price += (is_buy ? 5 : -5);

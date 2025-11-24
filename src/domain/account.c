@@ -89,13 +89,35 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
     while (p && *p && outpos + 1 < buflen) {
         char *nl = strchr(p, '\n');
         if (nl) *nl = '\0';
-        /* parse ts,amount,balance */
+
+        /* parse flexible formats:
+         * old: ts,amount,balance
+         * new: ts,reason,amount,balance
+         */
         char *tok1 = strtok(p, ",");
         char *tok2 = tok1 ? strtok(NULL, ",") : NULL;
         char *tok3 = tok2 ? strtok(NULL, ",") : NULL;
+        char *tok4 = tok3 ? strtok(NULL, ",") : NULL;
+
         long ts = tok1 ? atol(tok1) : 0;
-        int amount = tok2 ? atoi(tok2) : 0;
-        int balance = tok3 ? atoi(tok3) : 0;
+        char reason[128] = "";
+        int amount = 0;
+        int balance = 0;
+
+        if (tok4) {
+            /* new format with reason */
+            if (tok2) snprintf(reason, sizeof(reason), "%s", tok2);
+            amount = tok3 ? atoi(tok3) : 0;
+            balance = tok4 ? atoi(tok4) : 0;
+        } else if (tok3) {
+            /* old format without reason */
+            amount = tok2 ? atoi(tok2) : 0;
+            balance = tok3 ? atoi(tok3) : 0;
+        } else {
+            /* fallback: try to interpret second token as amount */
+            amount = tok2 ? atoi(tok2) : 0;
+            balance = 0;
+        }
 
         /* format absolute datetime */
         char timestr[64];
@@ -108,8 +130,13 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
             else snprintf(timestr, sizeof(timestr), "%ld", ts);
         }
 
-        /* format line: "[YYYY-MM-DD HH:MM] %+d Cr (bal %d)\n" */
-        int wrote = snprintf(buf + outpos, buflen - outpos, "[%s] %+d Cr (bal %d)\n", timestr, amount, balance);
+        /* include reason if present */
+        int wrote = 0;
+        if (reason[0]) {
+            wrote = snprintf(buf + outpos, buflen - outpos, "[%s] %s %+d Cr (bal %d)\n", timestr, reason, amount, balance);
+        } else {
+            wrote = snprintf(buf + outpos, buflen - outpos, "[%s] %+d Cr (bal %d)\n", timestr, amount, balance);
+        }
         if (wrote < 0) break;
         if ((size_t)wrote >= buflen - outpos) {
             outpos = buflen - 1;
@@ -126,4 +153,37 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
     if (outpos >= buflen) outpos = buflen - 1;
     buf[outpos] = '\0';
     return (int)outpos;
+}
+
+int account_add_tx(User *user, int amount, const char *reason) {
+    if (!user) return 0;
+
+    if (!account_adjust(&user->bank, amount)) {
+        return 0;
+    }
+
+    /* sanitize reason: replace commas/newlines with space */
+    char reason_safe[128] = "";
+    if (reason && reason[0]) {
+        snprintf(reason_safe, sizeof(reason_safe), "%s", reason);
+        for (size_t i = 0; i < sizeof(reason_safe); ++i) {
+            if (reason_safe[i] == ',' || reason_safe[i] == '\n' || reason_safe[i] == '\r') reason_safe[i] = ' ';
+            if (reason_safe[i] == '\0') break;
+        }
+    }
+
+    /* ensure directory exists and append a CSV row: ts,reason,amount,balance */
+    csv_ensure_dir("data");
+    csv_ensure_dir("data/txs");
+    char path[512];
+    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+    csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason_safe[0] ? reason_safe : "", amount, user->bank.balance);
+    return 1;
+}
+
+int account_add_tx_by_username(const char *username, int amount, const char *reason) {
+    if (!username) return 0;
+    User *u = user_lookup(username);
+    if (!u) return 0;
+    return account_add_tx(u, amount, reason);
 }

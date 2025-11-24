@@ -126,16 +126,24 @@ static void handle_qotd_view(User *user) {
         if (ch >= '1' && ch <= '9') {
             int sel = ch - '0';
             if (sel == correct_choice) {
-                user->bank.balance += reward;
-                qotd_mark_solved(user->name);
-                /* persist balance change to accounts CSV */
-                user_update_balance(user->name, user->bank.balance);
-                mvwprintw(win, height - 2, 2, "Correct! +%dCr awarded. Press any key.", reward);
-                wrefresh(win);
-                wgetch(win);
-                tui_ncurses_toast("Correct! Reward granted", 1000);
-                running = 0;
-                break;
+                /* use account_add_tx to adjust balance and persist tx */
+                int ok = account_add_tx(user, reward, "QOTD");
+                if (ok) {
+                    qotd_mark_solved(user->name);
+                    /* persist balance to accounts CSV as other flows do */
+                    user_update_balance(user->name, user->bank.balance);
+                    mvwprintw(win, height - 2, 2, "Correct! +%dCr awarded. Press any key.", reward);
+                    wrefresh(win);
+                    wgetch(win);
+                    tui_ncurses_toast("Correct! Reward granted", 1000);
+                    running = 0;
+                    break;
+                } else {
+                    mvwprintw(win, height - 2, 2, "Transaction failed. Try again later.");
+                    wrefresh(win);
+                    napms(1000);
+                    break;
+                }
             } else {
                 reward -= 5;
                 if (reward < 0) reward = 0;
@@ -437,12 +445,13 @@ static void handle_account_view(User *user) {
             if (tui_ncurses_prompt_number(win, label, &amount) && amount > 0) {
                 int ok = 0;
                 if (ch == 'd') {
-                    ok = econ_deposit(&user->bank, amount);
+                    ok = account_add_tx(user, amount, "DEPOSIT");
                 } else if (ch == 'b') {
-                    ok = econ_borrow(&user->bank, amount);
+                    ok = account_add_tx(user, amount, "BORROW");
                 } else {
-                    ok = econ_repay(&user->bank, amount);
+                    ok = account_add_tx(user, -amount, "REPAY");
                 }
+                if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);
             }
         } else if (ch == 'q' || ch == 27) {
