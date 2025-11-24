@@ -61,7 +61,7 @@ static void ensure_student_seed(User *user) {
             user->name);
     }
     }
-}
+
 // --- QOTD viewer integration ---
 static char *qotd_solved_users[256];
 static int qotd_solved_count = 0;
@@ -305,7 +305,6 @@ static void draw_dashboard(User *user, const char *status) {
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
         int row = 6;
-        int row = 6;
         char *p = txbuf;
         while (p && *p && row < getmaxy(account_win)-1) {
             char *nl = strchr(p, '\n');
@@ -353,24 +352,10 @@ static void handle_mission_board(User *user) {
             }
         }
     }
-
-
     /* ensure the latest missions from data/missions.csv are loaded,
        and refresh the user's mission list before showing the board */
     mission_refresh_catalog();
     mission_load_user(user->name, user);
-
-    /* assign any newly opened missions (avoid duplicates via user_has_mission) */
-    Mission open[8];
-    int open_count = 0;
-    if (mission_list_open(open, &open_count)) {
-        for (int i = 0; i < open_count && i < 4; ++i) {
-            if (!user_has_mission(user, open[i].id)) {
-                admin_assign_mission(user->name, &open[i]);
-            }
-        }
-    }
-
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, 2, 3, "Mission Board (Enter to complete/ a new mission/ q to close)");
@@ -544,7 +529,6 @@ static void handle_account_view(User *user) {
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
                                         "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
-                                        "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
     int running = 1;
     while (running) {
         werase(win);
@@ -618,6 +602,7 @@ static void handle_account_view(User *user) {
         }
     }
     tui_common_destroy_box(win);
+}
 }
 
 static void trim_whitespace(char *text) {
@@ -767,16 +752,7 @@ void tui_student_loop(User *user) {
         return;
     }
     /* ensure latest global mission catalog is loaded at login so dashboard and mission board show new missions */
-    mission_refresh_catalog();
-     ensure_student_seed(user);
-     const char *status = "Shortcut Keys";
-     int running = 1;
-     while (running) {
-         draw_dashboard(user, status);
-         int ch = getch();
-         switch (ch) {
-    /* ensure latest global mission catalog is loaded at login so dashboard and mission board show new missions */
-    mission_refresh_catalog();
+     mission_refresh_catalog();
      ensure_student_seed(user);
      const char *status = "Shortcut Keys";
      int running = 1;
