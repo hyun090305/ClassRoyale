@@ -31,6 +31,9 @@ static void ensure_student_seed(User *user) {
     if (!user || user->mission_count > 0) {
         return;
     }
+    /* reload mission catalog from disk at each login/start of student UI */
+    mission_refresh_catalog();
+
     /* try to load persisted missions from CSV first */
     mission_load_user(user->name, user);
     Mission open[8];
@@ -45,7 +48,6 @@ static void ensure_student_seed(User *user) {
     }
     /* ensure per-user tx file exists and set bank metadata */
     snprintf(user->bank.name, sizeof(user->bank.name), "%s", user->name);
-
     // 로그 버퍼가 비어 있으면 초기 메시지 넣기 (원하면 생략해도 됨)
     if (user->bank.log[0] == '\0') {
         snprintf(
@@ -53,7 +55,7 @@ static void ensure_student_seed(User *user) {
             sizeof(user->bank.log),
             "== Transaction log for %s ==\n",
             user->name);
-}
+    }
 }
 // --- QOTD viewer integration ---
 static char *qotd_solved_users[256];
@@ -215,7 +217,7 @@ static void render_news(WINDOW *win, const User *user) {
 static void draw_dashboard(User *user, const char *status) {
     erase();
     mvprintw(1, (COLS - 30) / 2, "Class Royale - Student Dashboard");
-    mvprintw(3, 2, "Name: %s | Balance: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.rating);
+    mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
     mvprintw(4, 2, "Items owned: %d | Stocks owned: %d", 10, user->holding_count);
     int percent = user->total_missions > 0 ? (user->completed_missions * 100) / user->total_missions : 0;
     const char *mc_label = "Mission Completion Rate:";
@@ -234,13 +236,15 @@ static void draw_dashboard(User *user, const char *status) {
     tui_common_destroy_box(mission_win);
 
     WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
-    mvwprintw(account_win, 1, 2, "Deposit Balance: %d Cr", user->bank.balance);
-    mvwprintw(account_win, 2, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-    mvwprintw(account_win, 4, 2, "Recent Transactions");
+    mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
+    mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
+    mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
+    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+    mvwprintw(account_win, 5, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
-        int row = 5;
+        int row = 6;
         char *p = txbuf;
         while (p && *p && row < getmaxy(account_win)-1) {
             char *nl = strchr(p, '\n');
@@ -259,7 +263,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_shop_preview(shop_win);
     tui_common_destroy_box(shop_win);
 
-    WINDOW *news_win = tui_common_create_box(box_height, col_width, 7 + box_height, col_width + 4, "Notices");
+    WINDOW *news_win = tui_common_create_box(box_height, col_width, 7 + box_height, col_width + 4, "Notices [n]");
     render_news(news_win, user);
     tui_common_destroy_box(news_win);
 
@@ -272,6 +276,23 @@ static void handle_mission_board(User *user) {
     if (!user) {
         return;
     }
+
+    /* ensure the latest missions from data/missions.csv are loaded,
+       and refresh the user's mission list before showing the board */
+    mission_refresh_catalog();
+    mission_load_user(user->name, user);
+
+    /* assign any newly opened missions (avoid duplicates via user_has_mission) */
+    Mission open[8];
+    int open_count = 0;
+    if (mission_list_open(open, &open_count)) {
+        for (int i = 0; i < open_count && i < 4; ++i) {
+            if (!user_has_mission(user, open[i].id)) {
+                admin_assign_mission(user->name, &open[i]);
+            }
+        }
+    }
+
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, 2, 3, "Mission Board (Enter to complete/ a new mission/ q to close)");
@@ -282,6 +303,7 @@ static void handle_mission_board(User *user) {
         werase(win);
         box(win, 0, 0);
         mvwprintw(win, 0, 2, " Mission Board (Enter to complete/ q to close) ");
+
         int available = user->mission_count;
         if (available == 0) {
             mvwprintw(win, 2, 2, "No assigned missions.");
@@ -310,6 +332,17 @@ static void handle_mission_board(User *user) {
             if (mission_complete(user->name, mid)) {
                 tui_ncurses_toast("Mission complete! Reward granted", 900);
                 user_update_balance(user->name, user->bank.balance);
+
+                /* reload user's missions so completed flag and counts update immediately */
+                mission_load_user(user->name, user);
+
+                /* adjust available/highlight after reload */
+                available = user->mission_count;
+                if (available == 0) {
+                    highlight = 0;
+                } else if (highlight >= available) {
+                    highlight = available - 1;
+                }
             } else {
                 /* Diagnose likely reason and show clearer message */
                 int found = 0;
@@ -420,36 +453,48 @@ static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit / b borrow / r repay / q close)");
+                                        "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
     int running = 1;
     while (running) {
         werase(win);
         box(win, 0, 0);
         mvwprintw(win, 0, 2, " Account Management ");
         mvwprintw(win, 1, 2, "Deposit: %d Cr", user->bank.balance);
-        mvwprintw(win, 2, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 3, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 5, 2, "Commands: d)deposit  b)borrow  r)repay  q)close");
+        mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
+        mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
+        mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
+        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
         wrefresh(win);
         int ch = wgetch(win);
-        if (ch == 'd' || ch == 'b' || ch == 'r') {
+        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
             char label[32];
                 if (ch == 'd') {
-                snprintf(label, sizeof(label), "Deposit amount");
+                snprintf(label, sizeof(label), "Amount to deposit from cash");
             } else if (ch == 'b') {
-                snprintf(label, sizeof(label), "Borrow amount");
+                snprintf(label, sizeof(label), "Loan amount (take loan)");
+            } else if (ch == 'r') {
+                snprintf(label, sizeof(label), "Amount to repay loan");
+            } else if (ch == 'w') {
+                snprintf(label, sizeof(label), "Amount to withdraw to cash");
             } else {
-                snprintf(label, sizeof(label), "Repay amount");
+                snprintf(label, sizeof(label), "Amount");
             }
             int amount = 0;
             if (tui_ncurses_prompt_number(win, label, &amount) && amount > 0) {
                 int ok = 0;
                 if (ch == 'd') {
-                    ok = account_add_tx(user, amount, "DEPOSIT");
+                    /* move from cash -> deposit */
+                    ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                 } else if (ch == 'b') {
-                    ok = account_add_tx(user, amount, "BORROW");
-                } else {
-                    ok = account_add_tx(user, -amount, "REPAY");
+                    /* take loan: loan += amount, cash += amount */
+                    ok = account_take_loan(user, amount, "LOAN_TAKEN");
+                } else if (ch == 'r') {
+                    /* repay loan: loan -= amount, cash -= amount */
+                    ok = account_repay_loan(user, amount, "LOAN_REPAY");
+                } else if (ch == 'w') {
+                    /* withdraw from deposit to cash */
+                    ok = account_withdraw_to_cash(user, amount, "WITHDRAW_TO_CASH");
                 }
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);
@@ -499,13 +544,15 @@ void tui_student_loop(User *user) {
     if (!user) {
         return;
     }
-    ensure_student_seed(user);
-    const char *status = "Shortcut Keys";
-    int running = 1;
-    while (running) {
-        draw_dashboard(user, status);
-        int ch = getch();
-        switch (ch) {
+    /* ensure latest global mission catalog is loaded at login so dashboard and mission board show new missions */
+    mission_refresh_catalog();
+     ensure_student_seed(user);
+     const char *status = "Shortcut Keys";
+     int running = 1;
+     while (running) {
+         draw_dashboard(user, status);
+         int ch = getch();
+         switch (ch) {
             case 'm':
             case 'M':
                 handle_mission_board(user);

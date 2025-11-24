@@ -86,7 +86,11 @@ static void seed_defaults(void) {
 
         // 은행 기본값 설정 (users.csv에는 balance 정보가 없으므로 role 기준 초기화)
         if (u.bank.balance == 0) {
-            u.bank.balance = (u.isadmin == TEACHER) ? 5000 : 1000;
+            u.bank.balance = (u.isadmin == TEACHER) ? 5000 : 1000; /* deposit */
+        }
+        /* ensure cash defaults to 0 */
+        if (u.bank.cash == 0) {
+            u.bank.cash = 0;
         }
         if (u.bank.rating == 0) {
             u.bank.rating = 'C';
@@ -116,41 +120,46 @@ static void seed_defaults(void) {
         if (line1[0] == '\0') {
             continue;
         }
-        // "name,password[,role]" 파싱 (role은 optional)
-        char *name = strtok(line1, ",");
-        char *balance = strtok(NULL, ",");
-        char *rating = strtok(NULL, ",");
-        char *log = strtok(NULL, ",");
+        // flexible CSV parsing: name,balance,rating[,cash[,loan[,log]]]
+        char *tokens[6] = {0};
+        int tc = 0;
+        char *p = strtok(line1, ",");
+        while (p && tc < (int)(sizeof(tokens)/sizeof(tokens[0]))) {
+            tokens[tc++] = p;
+            p = strtok(NULL, ",");
+        }
+        if (tc < 3) continue; /* need at least name,balance,rating */
+        char *name = tokens[0];
+        char *balance = tokens[1];
+        char *rating = tokens[2];
+        char *cash_tok = tc > 3 ? tokens[3] : NULL;
+        char *loan_tok = tc > 4 ? tokens[4] : NULL;
+        char *log = tc > 5 ? tokens[5] : NULL;
+
         if (!name || !balance || !rating) {
-            // 형식이 이상하면 스킵
             continue;
         }
         if (g_user_count >= MAX_STUDENTS) {
-            // 더 이상 못 넣으면 중단
             break;
         }
-    for (int i = 0; i < g_user_count; ++i) {
+        for (int i = 0; i < g_user_count; ++i) {
             if (strcmp(g_users[i].name, name) == 0) {
-                // balance / rating 숫자로 변환 (타입에 맞게 수정)
-                // balance, rating 은 문자열 → 정수 변환
-            g_users[i].bank.balance = atoi(balance);
-            g_users[i].bank.rating  = atoi(rating);
+                g_users[i].bank.balance = atoi(balance);
+                g_users[i].bank.rating  = atoi(rating);
+                g_users[i].bank.cash = cash_tok ? atoi(cash_tok) : 0;
+                g_users[i].bank.loan = loan_tok ? atoi(loan_tok) : 0;
 
-            // bank.name 문자열 복사 (원하면)
-            snprintf(
-                g_users[i].bank.name,
-                sizeof(g_users[i].bank.name),
-                "%s",
-                name
-            );
-
-                // log 같은 문자열 필드가 있다면
+                snprintf(
+                    g_users[i].bank.name,
+                    sizeof(g_users[i].bank.name),
+                    "%s",
+                    name
+                );
                 if (log) {
                     snprintf(g_users[i].bank.log,
                              sizeof(g_users[i].bank.log),
                              "%s", log);
                 }
-                // 찾았으면 더 돌 필요 없으니까 break
                 break;
             }
         }
@@ -199,6 +208,9 @@ int user_register(const User *new_user) {
     if (!new_user || g_user_count >= MAX_STUDENTS) {
         return 0;
     }
+    /* reject empty name or password */
+    if (!new_user->name || !new_user->pw) return 0;
+    if (new_user->name[0] == '\0' || new_user->pw[0] == '\0') return 0;
     if (has_duplicate(new_user->name)) {
         return 0;
     }
@@ -248,7 +260,7 @@ int user_update_balance(const char *username, int new_balance) {
     int found = 0;
     for (size_t i = 0; i < g_user_count; ++i) {
         if (strncmp(g_users[i].name, username, sizeof(g_users[i].name)) == 0) {
-            g_users[i].bank.balance = new_balance;
+            g_users[i].bank.balance = new_balance; /* deposit */
             found = 1;
             break;
         }
@@ -261,8 +273,10 @@ int user_update_balance(const char *username, int new_balance) {
         return found;
     }
     for (size_t i = 0; i < g_user_count; ++i) {
-        /* CSV format: name,balance,rating */
-        fprintf(fp, "%s,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating);
+        /* CSV format (extended): name,balance,rating,cash,loan
+         * Backwards compatibility: older readers ignoring extra columns will still work.
+         */
+        fprintf(fp, "%s,%d,%d,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating, g_users[i].bank.cash, g_users[i].bank.loan);
     }
     fclose(fp);
     return found;

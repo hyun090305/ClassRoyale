@@ -40,7 +40,7 @@ static void draw_teacher_dashboard(User *user, const char *status) {
         if (entry->isadmin == STUDENT) {
             student_count++;
         }
-        total_balance += entry->bank.balance;
+        total_balance += (long)entry->bank.balance + (long)entry->bank.cash;
     }
     WINDOW *summary = tui_common_create_box(6, COLS - 4, 3, 2, "Class Summary");
     mvwprintw(summary, 1, 2, "Students: %d", student_count);
@@ -85,13 +85,16 @@ static void draw_teacher_dashboard(User *user, const char *status) {
 }
 
 static void handle_new_mission(void) {
-    int height = 12;
-    int width = 60;
+    int height = 14;
+    int width = 64;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "Create New Mission");
     char title[64];
     char reward_buf[16];
+    char type_buf[8];
     memset(title, 0, sizeof(title));
     memset(reward_buf, 0, sizeof(reward_buf));
+    memset(type_buf, 0, sizeof(type_buf));
+
     if (!tui_ncurses_prompt_line(win, 2, 2, "Title", title, sizeof(title), 0)) {
         tui_common_destroy_box(win);
         return;
@@ -100,10 +103,20 @@ static void handle_new_mission(void) {
         tui_common_destroy_box(win);
         return;
     }
+    /* prompt for type: 0 = Typing Practice, 1 = Math Quiz */
+    if (!tui_ncurses_prompt_line(win, 4, 2, "Type (0:Typing Practice, 1:Math Quiz)", type_buf, sizeof(type_buf), 0)) {
+        tui_common_destroy_box(win);
+        return;
+    }
+    int mtype = atoi(type_buf);
+    if (mtype != 0 && mtype != 1) {
+        mtype = 1; /* default to Math Quiz if invalid */
+    }
+
     Mission m = {0};
     snprintf(m.name, sizeof(m.name), "%s", title);
     m.reward = atoi(reward_buf);
-    m.type = 1;
+    m.type = mtype;
     if (mission_create(&m)) {
         tui_ncurses_toast("New mission registered", 900);
     } else {
@@ -145,8 +158,8 @@ static void handle_student_list(void) {
                 wattron(win, A_REVERSE);
             }
             User *entry = students[i];
-            mvwprintw(win, 1 + i, 2, "%s Balance:%dCr Rating:%c Missions:%d/%d", entry->name, entry->bank.balance,
-                      entry->bank.rating, entry->completed_missions, entry->total_missions);
+            mvwprintw(win, 1 + i, 2, "%s Deposit:%dCr Cash:%dCr Rating:%c Missions:%d/%d", entry->name, entry->bank.balance,
+                      entry->bank.cash, entry->bank.rating, entry->completed_missions, entry->total_missions);
             if (i == highlight) {
                 wattroff(win, A_REVERSE);
             }

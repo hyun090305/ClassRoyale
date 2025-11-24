@@ -25,7 +25,7 @@ void tui_stock_show_market(User *user) {
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 0, 2, " Stock Market - Balance %dCr ", user->bank.balance);
+        mvwprintw(win, 0, 2, " Stock Market - Deposit:%dCr Cash:%dCr ", user->bank.balance, user->bank.cash);
         int visible = height - 4;
         for (int i = 0; i < count && i < visible; ++i) {
             if (i == highlight) {

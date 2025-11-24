@@ -3,11 +3,11 @@
 
 #include "../types.h"
 
-int mission_create(const Mission *m);
 int mission_list_open(Mission *out_arr, int *out_n);
+int mission_create(const Mission *m);
 int mission_complete(const char *username, int mission_id);
-/* Load persisted missions for a user from data/missions/<username>.csv
- * Returns number of missions loaded or -1 on error. */
 int mission_load_user(const char *username, User *user);
+/* Force re-read of data/missions.csv into the in-memory catalog */
+int mission_refresh_catalog(void);
 
 #endif /* DOMAIN_MISSION_H */

@@ -35,7 +35,7 @@ static void ensure_seeded(void) {
     if (g_seeded) {
         return;
     }
-    /* Try to load persisted missions from data/missions.csv */
+    /* existing seeding logic reads data/missions.csv into g_catalog */
     csv_ensure_dir("data");
     char *buf = NULL;
     size_t buflen = 0;
@@ -80,6 +80,14 @@ static void ensure_seeded(void) {
     g_seeded = 1;
 }
 
+/* public helper: clear the seeded flag and re-run the seeder so callers
+   can force the in-memory catalog to be refreshed from disk */
+int mission_refresh_catalog(void) {
+    g_seeded = 0;
+    ensure_seeded();
+    return g_catalog_count;
+}
+
 int mission_create(const Mission *m) {
     ensure_seeded();
     /* prevent creating duplicate missions by name */
@@ -93,16 +101,27 @@ int mission_create(const Mission *m) {
     slot->type = m->type;
     slot->reward = m->reward;
     slot->completed = 0;
+
     /* persist new mission to data/missions.csv */
     csv_ensure_dir("data");
     /* sanitize name by replacing any commas with space to keep CSV simple */
-    char name_safe[sizeof(slot->name)];
-    snprintf(name_safe, sizeof(name_safe), "%s", slot->name);
-    for (size_t i = 0; i < sizeof(name_safe); ++i) {
-        if (name_safe[i] == ',') name_safe[i] = ' ';
-        if (name_safe[i] == '\n' || name_safe[i] == '\r') name_safe[i] = ' ';
+    /* append with a preceding newline if the file does not end with newline */
+    FILE *fp = fopen("data/missions.csv", "a+");
+    if (fp) {
+        /* ensure file ends with newline before appending a new CREATE line */
+        long cur = ftell(fp);
+        if (cur > 0) {
+            /* check last byte */
+            fseek(fp, -1, SEEK_END);
+            int last = fgetc(fp);
+            fseek(fp, 0, SEEK_END);
+            if (last != '\n') {
+                fputc('\n', fp);
+            }
+        }
+        fprintf(fp, "CREATE,%d,%s,%d,%d,%ld\n", slot->id, slot->name, slot->type, slot->reward, (long)time(NULL));
+        fclose(fp);
     }
-    csv_append_row("data/missions.csv", "CREATE,%d,%s,%d,%d,%ld", slot->id, name_safe, slot->type, slot->reward, time(NULL));
     return 1;
 }
 

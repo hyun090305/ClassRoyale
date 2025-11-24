@@ -22,7 +22,7 @@ void tui_auction_show_house(User *user) {
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 0, 2, " Auction House - Balance %dCr ", user->bank.balance);
+        mvwprintw(win, 0, 2, " Auction House - Deposit:%dCr Cash:%dCr ", user->bank.balance, user->bank.cash);
         for (int i = 0; i < count && i < height - 2; ++i) {
             if (i == highlight) {
                 wattron(win, A_REVERSE);
