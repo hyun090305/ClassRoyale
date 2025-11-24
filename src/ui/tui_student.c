@@ -18,6 +18,7 @@
 #include "../../include/core/csv.h"
 #include "../../include/domain/notification.h"
 #include "../../include/domain/account.h"
+#include "../../include/domain/message.h"
 
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
@@ -205,12 +206,61 @@ static void render_shop_preview(WINDOW *win) {
 static int qotd_is_solved(const char *name);
 
 static void render_news(WINDOW *win, const User *user) {
-    const char *lines[] = {
-        "Recent Notices",
-        " - Mission #12 deadline D-1",
-        " - Seat passes sold out"
-    };
-    tui_common_print_multiline(win, 1, 2, lines, sizeof(lines) / sizeof(lines[0]));
+    if (!win) return;
+    int inner_rows = getmaxy(win) - 2;
+    if (inner_rows <= 0) return;
+    if (!user) {
+        mvwprintw(win, 1, 2, "No notices.");
+        wrefresh(win);
+        return;
+    }
+
+    int row = 1;
+
+    /* Notifications section */
+    mvwprintw(win, row++, 2, "Notices:");
+    char notice_buf[1024];
+    notice_buf[0] = '\0';
+    int notice_len = notify_recent_to_buf(user->name, inner_rows / 2 + 2, notice_buf, sizeof(notice_buf));
+    if (notice_len > 0) {
+        char *p = notice_buf;
+        while (p && *p && row <= inner_rows) {
+            char *nl = strchr(p, '\n');
+            if (nl) *nl = '\0';
+            mvwprintw(win, row++, 4, "%s", p);
+            if (!nl) break;
+            p = nl + 1;
+        }
+    } else {
+        mvwprintw(win, row++, 4, "(none)");
+    }
+
+    if (row <= inner_rows) {
+        mvwprintw(win, row++, 2, "");
+    }
+
+    /* Private messages section */
+    if (row <= inner_rows) {
+        mvwprintw(win, row++, 2, "Messages:");
+        char msg_buf[1024];
+        msg_buf[0] = '\0';
+        int msg_limit = inner_rows - row;
+        if (msg_limit < 1) msg_limit = 1;
+        int msg_len = message_recent_to_buf(user->name, msg_limit, msg_buf, sizeof(msg_buf));
+        if (msg_len > 0) {
+            char *m = msg_buf;
+            while (m && *m && row <= inner_rows) {
+                char *nl = strchr(m, '\n');
+                if (nl) *nl = '\0';
+                mvwprintw(win, row++, 4, "%s", m);
+                if (!nl) break;
+                m = nl + 1;
+            }
+        } else {
+            mvwprintw(win, row++, 4, "(no messages yet)");
+        }
+    }
+
     wrefresh(win);
 }
 
@@ -263,11 +313,11 @@ static void draw_dashboard(User *user, const char *status) {
     render_shop_preview(shop_win);
     tui_common_destroy_box(shop_win);
 
-    WINDOW *news_win = tui_common_create_box(box_height, col_width, 7 + box_height, col_width + 4, "Notices [n]");
+    WINDOW *news_win = tui_common_create_box(box_height, col_width, 7 + box_height, col_width + 4, "Notices/Messages[n]");
     render_news(news_win, user);
     tui_common_destroy_box(news_win);
 
-    tui_common_draw_help("m:Missions s:Shop a:Account d:QOTD q:Logout");
+    tui_common_draw_help("m:Missions s:Shop a:Account d:QOTD n:Messages q:Logout");
     tui_ncurses_draw_status(status);
     refresh();
 }
@@ -506,36 +556,144 @@ static void handle_account_view(User *user) {
     tui_common_destroy_box(win);
 }
 
-static void handle_notice_view(User *user) {
-    int height = LINES-4;
-    int width = COLS-6;
+static void trim_whitespace(char *text) {
+    if (!text) return;
+    /* trim leading */
+    char *start = text;
+    while (*start == ' ' || *start == '\t') start++;
+    if (start != text) memmove(text, start, strlen(start) + 1);
+    /* trim trailing */
+    size_t len = strlen(text);
+    while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t')) {
+        text[len - 1] = '\0';
+        len--;
+    }
+}
+
+static void handle_message_center(User *user) {
+    if (!user) return;
+    int height = LINES - 4;
+    int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Notices");
-    int running = 1;
+                                        "Notices/Messages (c compose / v view / a all / q close)");
     keypad(win, TRUE);
+    int running = 1;
+    char current_peer[50];
+    current_peer[0] = '\0';
     while (running) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 1, 2, "Notices for %s", user->name);
-        char buf[4096];
-        int n = notify_recent_to_buf(user->name, 50, buf, sizeof(buf));
-        if (n > 0) {
-            int row = 3;
-            char *p = buf;
-            while (p && *p && row < getmaxy(win)-2) {
-                char *nl = strchr(p, '\n');
-                if (nl) *nl = '\0';
-                mvwprintw(win, row++, 2, "%s", p);
-                if (!nl) break;
-                p = nl + 1;
+        int maxy = getmaxy(win);
+        int content_limit = maxy - 3; /* keep last two rows for commands */
+        int row = 1;
+        mvwprintw(win, row++, 2, "Inbox for %s", user->name);
+
+        char partners[32][50];
+        int partner_count = message_list_partners(user->name, partners, 32);
+        if (partner_count > 0) {
+            mvwprintw(win, row++, 2, "Conversations:");
+            for (int i = 0; i < partner_count && row <= content_limit; ++i) {
+                int is_active = current_peer[0] && strncmp(current_peer, partners[i], sizeof(partners[i])) == 0;
+                mvwprintw(win, row++, 4, "%c %s", is_active ? '*' : '-', partners[i]);
             }
         } else {
-            mvwprintw(win, 3, 2, "No notices.");
+            mvwprintw(win, row++, 2, "No private conversations yet.");
         }
-        mvwprintw(win, getmaxy(win)-2, 2, "Press q to close");
+        if (row <= content_limit) {
+            row++;
+        }
+
+        char feed[4096];
+        feed[0] = '\0';
+        int available_lines = content_limit - row;
+        if (available_lines < 3) available_lines = 3;
+        if (current_peer[0]) {
+            mvwprintw(win, row++, 2, "Conversation with %s", current_peer);
+            message_thread_to_buf(user->name, current_peer, available_lines, feed, sizeof(feed));
+        } else {
+            mvwprintw(win, row++, 2, "Recent messages");
+            message_recent_to_buf(user->name, available_lines, feed, sizeof(feed));
+        }
+
+        char *p = feed;
+        while (p && *p && row <= content_limit) {
+            char *nl = strchr(p, '\n');
+            if (nl) *nl = '\0';
+            mvwprintw(win, row++, 2, "%s", p);
+            if (!nl) break;
+            p = nl + 1;
+        }
+        if (feed[0] == '\0' && row <= content_limit) {
+            mvwprintw(win, row++, 2, "No messages to display.");
+        }
+
+        if (row <= content_limit) {
+            mvwprintw(win, row++, 2, "Latest notices:");
+            char notice_buf[1024];
+            notice_buf[0] = '\0';
+            int notice_limit = content_limit - row;
+            if (notice_limit < 1) notice_limit = 1;
+            notify_recent_to_buf(user->name, notice_limit, notice_buf, sizeof(notice_buf));
+            char *nb = notice_buf;
+            while (nb && *nb && row <= content_limit) {
+                char *nl = strchr(nb, '\n');
+                if (nl) *nl = '\0';
+                mvwprintw(win, row++, 4, "%s", nb);
+                if (!nl) break;
+                nb = nl + 1;
+            }
+            if (notice_buf[0] == '\0' && row <= content_limit) {
+                mvwprintw(win, row++, 4, "(none)");
+            }
+        }
+
+        mvwprintw(win, maxy - 3, 2, current_peer[0] ? "Viewing conversation - press 'a' to show all" : "Viewing all messages");
+        mvwprintw(win, maxy - 2, 2, "Commands: c)compose  v)view user  a)show all  q)close");
         wrefresh(win);
+
         int ch = wgetch(win);
-        if (ch == 'q' || ch == 'Q' || ch == 27) running = 0;
+        if (ch == 'q' || ch == 'Q' || ch == 27) {
+            running = 0;
+        } else if (ch == 'a' || ch == 'A') {
+            current_peer[0] = '\0';
+        } else if (ch == 'v' || ch == 'V') {
+            char peer[50];
+            memset(peer, 0, sizeof(peer));
+            if (tui_ncurses_prompt_line(win, 2, 2, "View conversation with", peer, sizeof(peer), 0) && peer[0]) {
+                trim_whitespace(peer);
+                if (peer[0]) {
+                    snprintf(current_peer, sizeof(current_peer), "%s", peer);
+                }
+            }
+        } else if (ch == 'c' || ch == 'C') {
+            char target[50];
+            char message[200];
+            memset(target, 0, sizeof(target));
+            memset(message, 0, sizeof(message));
+            if (!tui_ncurses_prompt_line(win, 2, 2, "Send to (username)", target, sizeof(target), 0) || target[0] == '\0') {
+                continue;
+            }
+            trim_whitespace(target);
+            if (strcmp(target, user->name) == 0) {
+                tui_ncurses_toast("Cannot message yourself", 900);
+                continue;
+            }
+            if (!user_lookup(target)) {
+                tui_ncurses_toast("User not found", 900);
+                continue;
+            }
+            if (!tui_ncurses_prompt_line(win, 3, 2, "Message", message, sizeof(message), 0) || message[0] == '\0') {
+                tui_ncurses_toast("Message canceled", 700);
+                continue;
+            }
+            trim_whitespace(message);
+            if (message_send(user->name, target, message)) {
+                tui_ncurses_toast("Message sent", 800);
+                snprintf(current_peer, sizeof(current_peer), "%s", target);
+            } else {
+                tui_ncurses_toast("Failed to send message", 900);
+            }
+        }
     }
     tui_common_destroy_box(win);
 }
@@ -585,8 +743,8 @@ void tui_student_loop(User *user) {
                 break;
             case 'n':
             case 'N':
-                handle_notice_view(user);
-                status = "";
+                handle_message_center(user);
+                status = "Checked messages";
                 break;
             case 'q':
             case 'Q':
