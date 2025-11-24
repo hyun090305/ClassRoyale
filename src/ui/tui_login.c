@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "../../include/domain/user.h"
 #include "../../include/ui/tui_common.h"
@@ -63,6 +64,22 @@ static rank_t prompt_role(WINDOW *form) {
     }
 }
 
+static void trim_whitespace(char *s) {
+    if (!s) return;
+    // trim leading
+    while (*s && isspace((unsigned char)*s)) {
+        size_t len = strlen(s);
+        memmove(s, s+1, len); /* include null terminator shift */
+    }
+    if (*s == '\0') return;
+    // trim trailing
+    char *end = s + strlen(s) - 1;
+    while (end > s && isspace((unsigned char)*end)) {
+        *end = '\0';
+        --end;
+    }
+}
+
 enum {
     NAME_FIELD_CAP = sizeof(((User *)0)->name),
     PW_FIELD_CAP = sizeof(((User *)0)->pw)
@@ -115,6 +132,14 @@ static void prompt_register(void) {
         tui_common_destroy_box(form);
         return;
     }
+    /* trim whitespace and validate non-empty inputs */
+    trim_whitespace(username);
+    trim_whitespace(password);
+    if (username[0] == '\0' || password[0] == '\0') {
+        tui_ncurses_toast("Name and password cannot be empty", 1200);
+        tui_common_destroy_box(form);
+        return;
+    }
     rank_t role = prompt_role(form);
     User newbie = {0};
     snprintf(newbie.name, sizeof(newbie.name), "%s", username);
@@ -123,23 +148,27 @@ static void prompt_register(void) {
     newbie.isadmin = role;
     snprintf(newbie.bank.name, sizeof(newbie.bank.name), "%s", username);
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
+    newbie.bank.cash = 0;
+    newbie.bank.loan = 0;
     newbie.bank.rating = 'C';
     if (user_register(&newbie)) {
         tui_ncurses_toast("Registration complete! Please log in", 1200);
+        /* persist only on successful registration */
+        FILE *fp = fopen("data/users.csv", "a");
+        if (fp) {
+            fprintf(fp, "\n%s,%s,%d", username, password, (int)role);
+            fclose(fp);
+        }
+        FILE *fp1 = fopen("data/accounts.csv", "a");
+        if (fp1) {
+            /* persist format: name,balance,rating,cash,loan */
+            fprintf(fp1, "\n%s,%d,%c,%d,%d", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan);
+            fclose(fp1);
+        }
     } else {
         tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }
     tui_common_destroy_box(form);
-    FILE *fp = fopen("data/users.csv", "a");
-    if (fp) {
-        fprintf(fp, "\n%s,%s,%d", username, password, (int)role);
-    }
-    fclose(fp);
-    FILE *fp1 = fopen("data/accounts.csv", "a");
-    if (fp1) {
-         fprintf(fp1, "\n%s,%d,%c,", username, 1000,'C');
-    }
-    fclose(fp1);
     draw_welcome(1, "After registration, please log in");
 }
 User *tui_login_flow(void) {
