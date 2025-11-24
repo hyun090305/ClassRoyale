@@ -25,6 +25,10 @@ static void ensure_seeded(void) {
     snprintf(g_shop.items[2].name, sizeof(g_shop.items[2].name), "%s", "Badge");
     g_shop.items[2].stock = 5;
     g_shop.items[2].cost = 500;
+    snprintf(g_shop.items[3].name, sizeof(g_shop.items[3].name), "%s", "Seat Reservation");
+    g_shop.items[3].stock = -1;
+    g_shop.items[3].cost = 0;
+
     g_shop_seeded = 1;
 }
 
