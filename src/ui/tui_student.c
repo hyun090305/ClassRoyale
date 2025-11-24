@@ -20,6 +20,11 @@
 #include "../../include/domain/account.h"
 #include "../../include/domain/message.h"
 
+#include <stdbool.h>   // bool 쓸 거면 필요
+
+// 이 파일 안에서만 쓰고 싶다면 둘 다 static
+static void handle_class_seats_view(User *user);
+
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
     for (int i = 0; i < user->mission_count; ++i) {
@@ -451,50 +456,131 @@ static void handle_mission_board(User *user) {
 static void handle_shop_view(User *user) {
     Shop shops[2];
     int count = 0;
+
     if (!shop_list(shops, &count) || count == 0) {
         tui_ncurses_toast("No shop information", 800);
         return;
     }
+
     Shop *shop = &shops[0];
     int height = LINES - 4;
-    int width = COLS - 6;
-    WINDOW *win = tui_common_create_box(height, width, 2, 3, "Shop (Enter to buy / s to sell / q to close)");
+    int width  = COLS - 6;
+
+    WINDOW *win = tui_common_create_box(
+        height,
+        width,
+        2,
+        3,
+        "Shop (Enter to buy / s to sell / c class seats / q to close)"
+    );
+
+    // highlight 의 범위를 0 ~ shop->item_count 까지 사용 (마지막 = Class Seats 버튼)
     int highlight = 0;
     keypad(win, TRUE);
+
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 0, 2, " %s Shop - Balance %dCr ", shop->name, user->bank.balance);
-        int visible = height - 2;
-        for (int i = 0; i < shop->item_count && i < visible; ++i) {
+
+        mvwprintw(win, 0, 2, " %s Shop - Balance %dCr ",
+                  shop->name, user->bank.balance);
+
+        int visible = height - 3; // 제목/버튼 줄 고려해서 여유 조금 빼줌
+
+        // 1) 아이템 리스트 출력
+        int max_items_to_show = shop->item_count;
+        if (max_items_to_show > visible - 1) { // 마지막 1줄은 Class Seats 용
+            max_items_to_show = visible - 1;
+        }
+
+        for (int i = 0; i < max_items_to_show; ++i) {
             if (i == highlight) {
                 wattron(win, A_REVERSE);
             }
-            mvwprintw(win, 1 + i, 2, "%s %3dCr Stock:%2d", shop->items[i].name, shop->items[i].cost, shop->items[i].stock);
+
+            mvwprintw(
+                win,
+                1 + i,
+                2,
+                "%s %3dCr Stock:%2d",
+                shop->items[i].name,
+                shop->items[i].cost,
+                shop->items[i].stock
+            );
+
             if (i == highlight) {
                 wattroff(win, A_REVERSE);
             }
         }
-        wrefresh(win);
-        int ch = wgetch(win);
+
+        // 2) 아이템이 하나도 없으면 안내 메시지
         if (shop->item_count == 0) {
             mvwprintw(win, 2, 2, "No items registered");
-            wrefresh(win);
-            int ch_wait = wgetch(win);
-            if (ch_wait == 'q' || ch_wait == 27) {
+        }
+
+        // 3) 맨 아래에 Class Seats 버튼(한 줄) 출력
+        int class_line = height - 2;
+        // int stock_line = height - 1;        // 아래쪽에서 한 줄 위
+        if (class_line < 1) class_line = 1;   // 혹시나 안전빵
+
+        if (highlight == shop->item_count) {
+            wattron(win, A_REVERSE);
+        }
+
+        mvwprintw(win, class_line, 2, "[ Class Seats ]  (Enter)");
+        // mvwprintw(win, stock_line, 2, "[ Stocks ]  (Enter)");
+
+        if (highlight == shop->item_count) {
+            wattroff(win, A_REVERSE);
+        }
+
+        wrefresh(win);
+
+        // 입력 처리
+        int ch = wgetch(win);
+
+        // 아이템 없을 때 q/ESC 로만 나가게
+        if (shop->item_count == 0) {
+            if (ch == 'q' || ch == 27) {
                 break;
             }
+            // 나머지 키는 무시하고 다음 루프로
             continue;
         }
+
+        int max_index = shop->item_count; // 마지막 인덱스 = Class Seats 버튼
+
         if (ch == KEY_UP) {
-            highlight = (highlight - 1 + shop->item_count) % shop->item_count;
+            highlight = (highlight - 1 + (max_index + 1)) % (max_index + 1);
         } else if (ch == KEY_DOWN) {
-            highlight = (highlight + 1) % shop->item_count;
+            highlight = (highlight + 1) % (max_index + 1);
+
         } else if (ch == '\n' || ch == '\r') {
+            // ✅ Class Seats 선택했을 때
+            if (highlight == shop->item_count) {
+                // 새 화면으로 이동
+                handle_class_seats_view(user);
+                // 돌아오면 상점 화면 다시 그리기 계속
+                continue;
+            }
+
+
+            // ✅ 일반 아이템 구매
             if (shop_buy(user->name, &shop->items[highlight], 1)) {
                 tui_ncurses_toast("Purchase complete", 800);
                 user_update_balance(user->name, user->bank.balance);
-                /* refresh the shop list to reflect updated stock */
+
+                // CSV 수량 1 감소
+                if (!shop_decrease_stock_csv(shop->items[highlight].name)) {
+                    tui_ncurses_toast("Warning: CSV update failed", 800);
+                }
+
+                // 메모리 상 재고도 1 감소
+                if (shop->items[highlight].stock > 0) {
+                    shop->items[highlight].stock--;
+                }
+
+                // 재고 업데이트를 위해 다시 로드
                 if (shop_list(shops, &count) && count > 0) {
                     shop = &shops[0];
                     if (highlight >= shop->item_count) {
@@ -504,23 +590,27 @@ static void handle_shop_view(User *user) {
             } else {
                 tui_ncurses_toast("Purchase failed - check balance/stock", 800);
             }
+
         } else if (ch == 's' || ch == 'S') {
-            if (shop_sell(user->name, &shop->items[highlight], 1)) {
-                tui_ncurses_toast("Sale complete", 800);
-                /* refresh the shop list after sale as well */
-                if (shop_list(shops, &count) && count > 0) {
-                    shop = &shops[0];
-                    if (highlight >= shop->item_count) {
-                        highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+            // 판매는 Class Seats 줄이 아닌 아이템 줄에서만 허용
+            if (highlight < shop->item_count) {
+                if (shop_sell(user->name, &shop->items[highlight], 1)) {
+                    tui_ncurses_toast("Sale complete", 800);
+                    if (shop_list(shops, &count) && count > 0) {
+                        shop = &shops[0];
+                        if (highlight >= shop->item_count) {
+                            highlight = shop->item_count > 0 ? shop->item_count - 1 : 0;
+                        }
                     }
+                } else {
+                    tui_ncurses_toast("Sale failed", 800);
                 }
-            } else {
-                tui_ncurses_toast("Sale failed", 800);
             }
         } else if (ch == 'q' || ch == 27) {
             break;
         }
     }
+
     tui_common_destroy_box(win);
 }
 
@@ -804,4 +894,41 @@ void tui_student_loop(User *user) {
                 break;
         }
     }
+}
+
+
+
+
+
+static void handle_class_seats_view(User *user) {
+    int height = LINES - 6;
+    int width  = COLS - 10;
+
+    WINDOW *win = tui_common_create_box(
+        height,
+        width,
+        3,
+        5,
+        "Class Seats (q to close)"
+    );
+
+    keypad(win, TRUE);
+
+    int running = 1;
+    while (running) {
+        werase(win);
+        box(win, 0, 0);
+
+        mvwprintw(win, 1, 2, "Here you can manage class seats for %s", user->name);
+        mvwprintw(win, 3, 2, "- TODO: implement class seats UI here -");
+
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        if (ch == 'q' || ch == 27) {
+            running = 0;
+        }
+    }
+
+    tui_common_destroy_box(win);
 }

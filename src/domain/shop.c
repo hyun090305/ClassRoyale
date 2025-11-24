@@ -5,6 +5,7 @@
 
 #include "../../include/domain/account.h"
 #include "../../include/domain/user.h"
+#include "../../include/ui/tui_student.h"
 
 static Shop g_shop;
 static int g_shop_seeded = 0;
@@ -169,4 +170,65 @@ int shop_sell(const char *username, const Item *item, int qty) {
         store_item->stock += qty;
     }
     return 1;
+}
+
+
+#define ITEMS_CSV_PATH "data/items.csv"
+#define ITEMS_TMP_PATH "data/items.tmp"
+#define MAX_LINE 256
+#define MAX_NAME 64
+
+bool shop_decrease_stock_csv(const char *item_name) {
+    FILE *fp = fopen(ITEMS_CSV_PATH, "r");
+    if (!fp) {
+        return false;
+    }
+
+    FILE *tmp = fopen(ITEMS_TMP_PATH, "w");
+    if (!tmp) {
+        fclose(fp);
+        return false;
+    }
+
+    char line[MAX_LINE];
+    char name[MAX_NAME];
+    int qty, price;
+    int found = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        // name,quantity,price 형식이라고 가정
+        // 이름에 공백 없는 경우: "%63[^,],%d,%d"
+        // 공백 있는 이름이면 CSV 규칙 더 꼼꼼히 처리해야 함
+        if (sscanf(line, "%63[^,],%d,%d", name, &qty, &price) == 3) {
+            if (strcmp(name, item_name) == 0) {
+                if (qty > 0) {
+                    qty--;
+                }
+                found = 1;
+            }
+            fprintf(tmp, "%s,%d,%d\n", name, qty, price);
+        } else {
+            // 파싱 실패한 라인은 원본 그대로 복사
+            fputs(line, tmp);
+        }
+    }
+
+    fclose(fp);
+    fclose(tmp);
+
+    if (!found) {
+        // 해당 아이템 못 찾았으면 롤백할지 말지는 선택사항
+        // 여기선 그냥 파일 교체는 진행
+    }
+
+    // 원본 덮어쓰기
+    if (remove(ITEMS_CSV_PATH) != 0) {
+        // 실패하면 tmp 남겨두고 false 리턴
+        return false;
+    }
+    if (rename(ITEMS_TMP_PATH, ITEMS_CSV_PATH) != 0) {
+        return false;
+    }
+
+    return true;
 }
