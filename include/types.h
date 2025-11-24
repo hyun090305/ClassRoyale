@@ -45,6 +45,7 @@ struct Bank {
     char name[50];
     int balance; /* deposit/bank balance (backward-compatible) */
     int cash;   /* physical/portable cash (new) */
+    int loan;   /* outstanding loan amount (new) */
     char log[128];
     char rating;
 };

@@ -238,12 +238,13 @@ static void draw_dashboard(User *user, const char *status) {
     WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
-    mvwprintw(account_win, 3, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-    mvwprintw(account_win, 4, 2, "Recent Transactions");
+    mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
+    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+    mvwprintw(account_win, 5, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
-        int row = 5;
+        int row = 6;
         char *p = txbuf;
         while (p && *p && row < getmaxy(account_win)-1) {
             char *nl = strchr(p, '\n');
@@ -452,7 +453,7 @@ static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit / b borrow / r repay / w withdraw / p put / q close)");
+                                        "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
     int running = 1;
     while (running) {
         werase(win);
@@ -460,33 +461,40 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 0, 2, " Account Management ");
         mvwprintw(win, 1, 2, "Deposit: %d Cr", user->bank.balance);
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
-        mvwprintw(win, 3, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 6, 2, "Commands: d)deposit  b)borrow  r)repay  w)withdraw  p)put to bank  q)close");
+        mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
+        mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
+        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
         wrefresh(win);
         int ch = wgetch(win);
-        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w' || ch == 'p') {
+        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
             char label[32];
                 if (ch == 'd') {
-                snprintf(label, sizeof(label), "Deposit amount");
+                snprintf(label, sizeof(label), "Amount to deposit from cash");
             } else if (ch == 'b') {
-                snprintf(label, sizeof(label), "Borrow amount");
+                snprintf(label, sizeof(label), "Loan amount (take loan)");
+            } else if (ch == 'r') {
+                snprintf(label, sizeof(label), "Amount to repay loan");
+            } else if (ch == 'w') {
+                snprintf(label, sizeof(label), "Amount to withdraw to cash");
             } else {
-                snprintf(label, sizeof(label), "Repay amount");
+                snprintf(label, sizeof(label), "Amount");
             }
             int amount = 0;
             if (tui_ncurses_prompt_number(win, label, &amount) && amount > 0) {
                 int ok = 0;
                 if (ch == 'd') {
-                    ok = account_add_tx(user, amount, "DEPOSIT");
+                    /* move from cash -> deposit */
+                    ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                 } else if (ch == 'b') {
-                    ok = account_add_tx(user, amount, "BORROW");
+                    /* take loan: loan += amount, cash += amount */
+                    ok = account_take_loan(user, amount, "LOAN_TAKEN");
                 } else if (ch == 'r') {
-                    ok = account_add_tx(user, -amount, "REPAY");
+                    /* repay loan: loan -= amount, cash -= amount */
+                    ok = account_repay_loan(user, amount, "LOAN_REPAY");
                 } else if (ch == 'w') {
-                    ok = account_withdraw_to_cash(user, amount, "WITHDRAW");
-                } else if (ch == 'p') {
-                    ok = account_deposit_from_cash(user, amount, "CASH_DEPOSIT");
+                    /* withdraw from deposit to cash */
+                    ok = account_withdraw_to_cash(user, amount, "WITHDRAW_TO_CASH");
                 }
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);

@@ -17,5 +17,8 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
 /* Move funds between bank (deposit) and cash on-hand. */
 int account_withdraw_to_cash(User *user, int amount, const char *reason); /* deposit -> cash */
 int account_deposit_from_cash(User *user, int amount, const char *reason); /* cash -> deposit */
+/* Loan operations: take loan (increase loan + increase cash), repay loan (decrease loan + decrease cash) */
+int account_take_loan(User *user, int amount, const char *reason);
+int account_repay_loan(User *user, int amount, const char *reason);
 
 #endif /* DOMAIN_ACCOUNT_H */
