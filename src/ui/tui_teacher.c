@@ -40,7 +40,7 @@ static void draw_teacher_dashboard(User *user, const char *status) {
         if (entry->isadmin == STUDENT) {
             student_count++;
         }
-        total_balance += entry->bank.balance;
+        total_balance += (long)entry->bank.balance + (long)entry->bank.cash;
     }
     WINDOW *summary = tui_common_create_box(6, COLS - 4, 3, 2, "Class Summary");
     mvwprintw(summary, 1, 2, "Students: %d", student_count);
@@ -145,8 +145,8 @@ static void handle_student_list(void) {
                 wattron(win, A_REVERSE);
             }
             User *entry = students[i];
-            mvwprintw(win, 1 + i, 2, "%s Balance:%dCr Rating:%c Missions:%d/%d", entry->name, entry->bank.balance,
-                      entry->bank.rating, entry->completed_missions, entry->total_missions);
+            mvwprintw(win, 1 + i, 2, "%s Deposit:%dCr Cash:%dCr Rating:%c Missions:%d/%d", entry->name, entry->bank.balance,
+                      entry->bank.cash, entry->bank.rating, entry->completed_missions, entry->total_missions);
             if (i == highlight) {
                 wattroff(win, A_REVERSE);
             }

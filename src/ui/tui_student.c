@@ -215,7 +215,7 @@ static void render_news(WINDOW *win, const User *user) {
 static void draw_dashboard(User *user, const char *status) {
     erase();
     mvprintw(1, (COLS - 30) / 2, "Class Royale - Student Dashboard");
-    mvprintw(3, 2, "Name: %s | Balance: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.rating);
+    mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
     mvprintw(4, 2, "Items owned: %d | Stocks owned: %d", 10, user->holding_count);
     int percent = user->total_missions > 0 ? (user->completed_missions * 100) / user->total_missions : 0;
     const char *mc_label = "Mission Completion Rate:";
@@ -234,8 +234,9 @@ static void draw_dashboard(User *user, const char *status) {
     tui_common_destroy_box(mission_win);
 
     WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
-    mvwprintw(account_win, 1, 2, "Deposit Balance: %d Cr", user->bank.balance);
-    mvwprintw(account_win, 2, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+    mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
+    mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
+    mvwprintw(account_win, 3, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
     mvwprintw(account_win, 4, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
@@ -420,19 +421,20 @@ static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit / b borrow / r repay / q close)");
+                                        "Account Management (d deposit / b borrow / r repay / w withdraw / p put / q close)");
     int running = 1;
     while (running) {
         werase(win);
         box(win, 0, 0);
         mvwprintw(win, 0, 2, " Account Management ");
         mvwprintw(win, 1, 2, "Deposit: %d Cr", user->bank.balance);
-        mvwprintw(win, 2, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 3, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 5, 2, "Commands: d)deposit  b)borrow  r)repay  q)close");
+        mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
+        mvwprintw(win, 3, 2, "Rating: %c", user->bank.rating);
+        mvwprintw(win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
+        mvwprintw(win, 6, 2, "Commands: d)deposit  b)borrow  r)repay  w)withdraw  p)put to bank  q)close");
         wrefresh(win);
         int ch = wgetch(win);
-        if (ch == 'd' || ch == 'b' || ch == 'r') {
+        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w' || ch == 'p') {
             char label[32];
                 if (ch == 'd') {
                 snprintf(label, sizeof(label), "Deposit amount");
@@ -448,8 +450,12 @@ static void handle_account_view(User *user) {
                     ok = account_add_tx(user, amount, "DEPOSIT");
                 } else if (ch == 'b') {
                     ok = account_add_tx(user, amount, "BORROW");
-                } else {
+                } else if (ch == 'r') {
                     ok = account_add_tx(user, -amount, "REPAY");
+                } else if (ch == 'w') {
+                    ok = account_withdraw_to_cash(user, amount, "WITHDRAW");
+                } else if (ch == 'p') {
+                    ok = account_deposit_from_cash(user, amount, "CASH_DEPOSIT");
                 }
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);

@@ -123,6 +123,7 @@ static void prompt_register(void) {
     newbie.isadmin = role;
     snprintf(newbie.bank.name, sizeof(newbie.bank.name), "%s", username);
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
+    newbie.bank.cash = 0;
     newbie.bank.rating = 'C';
     if (user_register(&newbie)) {
         tui_ncurses_toast("Registration complete! Please log in", 1200);
@@ -135,11 +136,12 @@ static void prompt_register(void) {
         fprintf(fp, "\n%s,%s,%d", username, password, (int)role);
     }
     fclose(fp);
-    FILE *fp1 = fopen("data/accounts.csv", "a");
-    if (fp1) {
-         fprintf(fp1, "\n%s,%d,%c,", username, 1000,'C');
-    }
-    fclose(fp1);
+        FILE *fp1 = fopen("data/accounts.csv", "a");
+        if (fp1) {
+            /* persist format: name,balance,rating,cash */
+            fprintf(fp1, "\n%s,%d,%c,%d", username, 1000, 'C', 0);
+        }
+        fclose(fp1);
     draw_welcome(1, "After registration, please log in");
 }
 User *tui_login_flow(void) {

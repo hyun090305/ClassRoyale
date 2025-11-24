@@ -14,4 +14,8 @@ int account_add_tx_by_username(const char *username, int amount, const char *rea
 /* Get recent transactions for user into buf (newline separated). Returns bytes written or -1 on error. */
 int account_recent_tx(const char *username, int limit, char *buf, size_t buflen);
 
+/* Move funds between bank (deposit) and cash on-hand. */
+int account_withdraw_to_cash(User *user, int amount, const char *reason); /* deposit -> cash */
+int account_deposit_from_cash(User *user, int amount, const char *reason); /* cash -> deposit */
+
 #endif /* DOMAIN_ACCOUNT_H */

@@ -86,7 +86,11 @@ static void seed_defaults(void) {
 
         // 은행 기본값 설정 (users.csv에는 balance 정보가 없으므로 role 기준 초기화)
         if (u.bank.balance == 0) {
-            u.bank.balance = (u.isadmin == TEACHER) ? 5000 : 1000;
+            u.bank.balance = (u.isadmin == TEACHER) ? 5000 : 1000; /* deposit */
+        }
+        /* ensure cash defaults to 0 */
+        if (u.bank.cash == 0) {
+            u.bank.cash = 0;
         }
         if (u.bank.rating == 0) {
             u.bank.rating = 'C';
@@ -116,11 +120,25 @@ static void seed_defaults(void) {
         if (line1[0] == '\0') {
             continue;
         }
-        // "name,password[,role]" 파싱 (role은 optional)
+        // CSV 파싱: name,balance,rating[,cash][,log]
         char *name = strtok(line1, ",");
         char *balance = strtok(NULL, ",");
         char *rating = strtok(NULL, ",");
-        char *log = strtok(NULL, ",");
+        char *maybe_cash = strtok(NULL, ",");
+        char *log = NULL;
+        if (maybe_cash) {
+            /* if maybe_cash looks numeric, treat as cash, otherwise treat as log and leave cash=0 */
+            int is_num = 1;
+            for (char *p = maybe_cash; *p; ++p) {
+                if ((*p < '0' || *p > '9') && *p != '-') { is_num = 0; break; }
+            }
+            if (is_num) {
+                log = strtok(NULL, ",");
+            } else {
+                log = maybe_cash;
+                maybe_cash = NULL;
+            }
+        }
         if (!name || !balance || !rating) {
             // 형식이 이상하면 스킵
             continue;
@@ -135,6 +153,7 @@ static void seed_defaults(void) {
                 // balance, rating 은 문자열 → 정수 변환
             g_users[i].bank.balance = atoi(balance);
             g_users[i].bank.rating  = atoi(rating);
+            g_users[i].bank.cash = maybe_cash ? atoi(maybe_cash) : 0;
 
             // bank.name 문자열 복사 (원하면)
             snprintf(
@@ -248,7 +267,7 @@ int user_update_balance(const char *username, int new_balance) {
     int found = 0;
     for (size_t i = 0; i < g_user_count; ++i) {
         if (strncmp(g_users[i].name, username, sizeof(g_users[i].name)) == 0) {
-            g_users[i].bank.balance = new_balance;
+            g_users[i].bank.balance = new_balance; /* deposit */
             found = 1;
             break;
         }
@@ -261,8 +280,10 @@ int user_update_balance(const char *username, int new_balance) {
         return found;
     }
     for (size_t i = 0; i < g_user_count; ++i) {
-        /* CSV format: name,balance,rating */
-        fprintf(fp, "%s,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating);
+        /* CSV format (extended): name,balance,rating,cash
+         * Backwards compatibility: older readers ignoring extra column will still work.
+         */
+        fprintf(fp, "%s,%d,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating, g_users[i].bank.cash);
     }
     fclose(fp);
     return found;
