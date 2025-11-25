@@ -1942,13 +1942,55 @@ static void handle_stock_graph_view(const Stock *stock) {
 
             
             int screen_x = plot_left + x;
-            int y = plot_bottom - (bar_h - 1);
-            if (y < plot_top) {
-                y = plot_top;
-            }
-            mvwaddch(win, y, screen_x, '*');
-            }
+            /* --- 스무스 라인 그래프: 점과 점 사이 채우기 --- */
+            int prev_x = -1;
+            int prev_y = -1;
 
+            for (int x = 0; x < plot_width; ++x) {
+                int idx = offset + x;
+                if (idx >= len) break;
+
+                int v = stock->log[idx];
+                double ratio = (double)(v - minv) / (double)(maxv - minv);
+                if (ratio < 0) ratio = 0;
+                if (ratio > 1) ratio = 1;
+
+                int bar_h = (int)(ratio * (plot_height - 1)) + 1;
+                if (bar_h > plot_height) bar_h = plot_height;
+
+                int y = plot_bottom - (bar_h - 1);
+                if (y < plot_top) y = plot_top;
+
+                int sx = plot_left + x;
+
+                /* 현재 점 찍기 */
+                mvwaddch(win, y, sx, '*');
+
+                /* 이전 점과 연결해주기 */
+                if (prev_x >= 0) {
+                    int dx = sx - prev_x;
+                    int dy = y  - prev_y;
+
+                    int steps = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+                    if (steps == 0) steps = 1;
+
+                    double stepx = dx / (double)steps;
+                    double stepy = dy / (double)steps;
+
+                    double cx = prev_x;
+                    double cy = prev_y;
+
+                    for (int s = 1; s < steps; ++s) {
+                        cx += stepx;
+                        cy += stepy;
+                        mvwaddch(win, (int)(cy + 0.5), (int)(cx + 0.5), '*');
+                    }
+                }
+
+                prev_x = sx;
+                prev_y = y;
+}
+        }
             // 막대그래프
         //     for (int k = 0; k < bar_h; ++k) {
         //         int y = plot_bottom - k;
