@@ -1005,17 +1005,7 @@ static void handle_class_seats_view(User *user) {
                 wrefresh(win);
                 break;
             }
-
-            // 이름 입력 창
-            echo();
-            char newname[64];
-            mvwprintw(win, height - 3, 2, "Enter name for seat %d: ", cursor);
-            wrefresh(win);
-            wgetnstr(win, newname, 63);
-            noecho();
-
-            // 저장
-            strcpy(g_seats[cursor].name, newname);
+            strcpy(g_seats[cursor].name, user->name);
             save_seats_csv();
 
             mvwprintw(win, height - 3, 2, "Seat %d reserved for %s     ", cursor, newname);
