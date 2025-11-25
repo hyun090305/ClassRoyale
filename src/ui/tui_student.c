@@ -310,7 +310,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_mission_preview(mission_win, user);
     tui_common_destroy_box(mission_win);
 
-    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
+    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status [a]");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
