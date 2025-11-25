@@ -881,6 +881,25 @@ void tui_student_loop(User *user) {
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 
+typedef struct {
+    char name[64];
+} Seat;
+
+static Seat g_seats[31]; // 1~30까지 사용
+
+static void load_seats_csv(void) {
+    FILE *fp = fopen("seats.csv", "r");
+    if (!fp) return;
+
+    int num;
+    char name[64];
+
+    while (fscanf(fp, "%d,%63[^\n]\n", &num, name) != EOF) {
+        strcpy(g_seats[num].name, name);
+    }
+    fclose(fp);
+}
+
 /* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
     int height = LINES - 6;
@@ -906,7 +925,7 @@ static void handle_class_seats_view(User *user) {
         // === 좌석 출력 시작 ===
         int start_y = 3;
         int start_x = 2;
-/*
+
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 5; col++) {
                 int seat_no = row * 5 + col + 1;
@@ -922,7 +941,7 @@ static void handle_class_seats_view(User *user) {
             }
         }
         // === 좌석 출력 끝 ===
-*/
+
         wrefresh(win);
 
         int ch = wgetch(win);
