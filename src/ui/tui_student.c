@@ -1241,6 +1241,7 @@ static void handle_class_seats_view(User *user) {
                 user->bank.cash += 10000;
                 user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
+                napms(500);
                 break;
             }
 
@@ -1253,13 +1254,13 @@ static void handle_class_seats_view(User *user) {
                     "Seat %d reserved for %s   ", cursor, user->name);
                 user->bank.cash -= 10000;
                 user_update_balance(user->name, user->bank.balance);
-                napms(500);
                 wrefresh(win);
+                napms(500);
             } else {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d is already reserved!", cursor);
-                napms(500);
                 wrefresh(win);
+                napms(500);
             }
 
             break;
