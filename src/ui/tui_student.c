@@ -311,28 +311,38 @@ static void draw_dashboard(User *user, const char *status) {
     render_mission_preview(mission_win, user);
     tui_common_destroy_box(mission_win);
 
-    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
+    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status [a]");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
     mvwprintw(account_win, 5, 2, "Recent Transactions");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
     mvwprintw(account_win, 5, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
         int row = 6;
+        /* split buffer into lines, collect pointers then print newest-first */
+        char *lines[256];
+        int line_count = 0;
         char *p = txbuf;
-        while (p && *p && row < getmaxy(account_win)-1) {
+        while (p && *p && line_count < (int)(sizeof(lines)/sizeof(lines[0]))) {
             char *nl = strchr(p, '\n');
             if (nl) *nl = '\0';
-            mvwprintw(account_win, row++, 4, "%s", p);
+            lines[line_count++] = p;
             if (!nl) break;
             p = nl + 1;
+        }
+        /* print in reverse so the most recent transaction appears first
+           and truncate each line to the account window width to avoid
+           automatic wrapping. */
+        int win_w = getmaxx(account_win);
+        int max_print = win_w - 6; /* 4 col offset + small margin */
+        if (max_print < 1) max_print = 1;
+        for (int i = line_count - 1; i >= 0 && row < getmaxy(account_win) - 1; --i) {
+            mvwprintw(account_win, row++, 4, "%.*s", max_print, lines[i]);
         }
     } else {
         mvwprintw(account_win, 5, 4, "No recent transactions");
@@ -413,21 +423,24 @@ static void handle_mission_board(User *user) {
                 highlight = (highlight + 1) % available;
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
-            int mid = user->missions[highlight].id;
-            Mission selected = user->missions[highlight];
-            if (selected.completed) {
+            Mission *sel = &user->missions[highlight];
+            if (sel->completed) {
                 tui_ncurses_toast("Mission already completed", 800);
             } else {
-                if (selected.type == 0) {
-                    handle_mission_play_typing(user, &selected);
-                } else if (selected.type == 1) {
-                    handle_mission_play_math(user, &selected);
+                /* launch appropriate play UI; UI will call mission_complete when finished */
+                if (sel->type == 0) {
+                    handle_mission_play_typing(user, sel);
+                } else {
+                    handle_mission_play_math(user, sel);
                 }
-                /* after returning, reload user missions so UI updates */
+                /* reload user's missions so completion / rewards show immediately */
                 mission_load_user(user->name, user);
                 available = user->mission_count;
-                if (available == 0) highlight = 0;
-                else if (highlight >= available) highlight = available - 1;
+                if (available == 0) {
+                    highlight = 0;
+                } else if (highlight >= available) {
+                    highlight = available - 1;
+                }
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
@@ -639,20 +652,12 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
-        mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
-        mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
-        mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
+        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
-        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
             char label[32];
                 if (ch == 'd') {
-                snprintf(label, sizeof(label), "Amount to deposit from cash");
                 snprintf(label, sizeof(label), "Amount to deposit from cash");
             } else if (ch == 'b') {
                 snprintf(label, sizeof(label), "Loan amount (take loan)");
@@ -660,21 +665,13 @@ static void handle_account_view(User *user) {
                 snprintf(label, sizeof(label), "Amount to repay loan");
             } else if (ch == 'w') {
                 snprintf(label, sizeof(label), "Amount to withdraw to cash");
-                snprintf(label, sizeof(label), "Loan amount (take loan)");
-            } else if (ch == 'r') {
-                snprintf(label, sizeof(label), "Amount to repay loan");
-            } else if (ch == 'w') {
-                snprintf(label, sizeof(label), "Amount to withdraw to cash");
             } else {
-                snprintf(label, sizeof(label), "Amount");
                 snprintf(label, sizeof(label), "Amount");
             }
             int amount = 0;
             if (tui_ncurses_prompt_number(win, label, &amount) && amount > 0) {
                 int ok = 0;
                 if (ch == 'd') {
-                    /* move from cash -> deposit */
-                    ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                     /* move from cash -> deposit */
                     ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                 } else if (ch == 'b') {
@@ -703,7 +700,6 @@ static void handle_account_view(User *user) {
         }
     }
     tui_common_destroy_box(win);
-}
 }
 
 static void trim_whitespace(char *text) {
@@ -929,6 +925,16 @@ static void load_seats_csv(void) {
     }
     fclose(fp);
 }
+void save_seats_csv(void) {
+    FILE *fp = fopen("seats.csv", "w");
+    if (!fp) return;
+
+    for (int i = 1; i <= 30; i++) {
+        fprintf(fp, "%d,%s\n", i, g_seats[i].name);
+    }
+
+    fclose(fp);
+}
 
 /* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
@@ -945,20 +951,27 @@ static void handle_class_seats_view(User *user) {
 
     keypad(win, TRUE);
 
+    int cursor = 1;  // 선택된 좌석 번호
     int running = 1;
+
     while (running) {
         werase(win);
         box(win, 0, 0);
 
-        mvwprintw(win, 1, 2, "Here you can manage class seats for %s", user->name);
+        mvwprintw(win, 1, 2,
+            "Manage class seats for %s  (Arrow keys, Enter=reserve/cancel)",
+            user->name);
 
-        // === 좌석 출력 시작 ===
         int start_y = 3;
         int start_x = 2;
 
+        // ===== 좌석 출력 =====
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 5; col++) {
                 int seat_no = row * 5 + col + 1;
+
+                if (seat_no == cursor)
+                    wattron(win, A_REVERSE);
 
                 char buf[128];
                 if (strlen(g_seats[seat_no].name) == 0)
@@ -966,22 +979,93 @@ static void handle_class_seats_view(User *user) {
                 else
                     snprintf(buf, sizeof(buf), "[%2d: %s]", seat_no, g_seats[seat_no].name);
 
-                // col * 18은 좌석 표시 간격 (길면 조절 가능)
                 mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
+
+                if (seat_no == cursor)
+                    wattroff(win, A_REVERSE);
             }
         }
-        // === 좌석 출력 끝 ===
 
         wrefresh(win);
-
         int ch = wgetch(win);
-        if (ch == 'q' || ch == 27) {
+
+        // ===== 입력 처리 =====
+        switch (ch) {
+        case KEY_UP:
+            if (cursor > 5) cursor -= 5;
+            break;
+
+        case KEY_DOWN:
+            if (cursor <= 25) cursor += 5;
+            break;
+
+        case KEY_LEFT:
+            if (((cursor - 1) % 5) != 0) cursor--;
+            break;
+
+        case KEY_RIGHT:
+            if ((cursor % 5) != 0) cursor++;
+            break;
+
+        case '\n':
+        case KEY_ENTER: {
+
+            // ===== 먼저 본인이 이미 다른 좌석을 예약했는지 검사 =====
+            int mySeat = -1;
+            for (int i = 1; i <= 30; i++) {
+                if (strcmp(g_seats[i].name, user->name) == 0) {
+                    mySeat = i;
+                    break;
+                }
+            }
+
+            // == 1) 본인이 이미 좌석을 가지고 있다면 ==
+            if (mySeat != -1 && mySeat != cursor) {
+                mvwprintw(win, height - 3, 2,
+                    "You already reserved seat %d. Cancel it first.", mySeat);
+                wrefresh(win);
+                break;
+            }
+
+            // == 2) 본인이 자기 좌석을 선택한 경우 → 해제 ==
+            if (mySeat == cursor) {
+                g_seats[cursor].name[0] = '\0';
+                save_seats_csv();
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d cancelled.", cursor);
+                wrefresh(win);
+                break;
+            }
+
+            // == 3) 빈 좌석이면 예약 ==
+            if (strlen(g_seats[cursor].name) == 0) {
+                strcpy(g_seats[cursor].name, user->name);
+                save_seats_csv();
+
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d reserved for %s   ", cursor, user->name);
+                napms(3500);
+                wrefresh(win);
+            } else {
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d is already reserved!", cursor);
+                napms(3500);
+                wrefresh(win);
+            }
+
+            break;
+        }
+
+        case 'q':
+        case 27:
             running = 0;
+            break;
         }
     }
 
     tui_common_destroy_box(win);
 }
+
 
 
 /* --- Mission play screens (typing practice / math quiz) --- */
@@ -1045,7 +1129,9 @@ static void handle_mission_play_typing(User *user, Mission *m) {
     int width = COLS - 10;
     int starty = 3;
     int startx = 5;
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Typing Practice - Single Screen (type on input lines; Enter -> next)");
+    char title[128];
+    snprintf(title, sizeof(title), "%s (Enter answer; q to quit)", m->name);
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, title);
     keypad(win, TRUE);
 
     bool use_colors = has_colors();
@@ -1068,7 +1154,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 1, 2, "Typing Practice - line %d of %d", cur+1, lines);
+        mvwprintw(win, 1, 2, "%s - line %d of %d", m->name, cur+1, lines);
         mvwprintw(win, height - 3, 2, "Backspace allowed. Enter -> next line. Esc -> cancel.");
 
         /* draw each text, then an empty row, then input row, then an empty row */
@@ -1145,7 +1231,6 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 append_typing_leaderboard(user->name, m->id, wpm, accuracy);
 
                 if (mission_complete(user->name, m->id)) {
-                    user_update_balance(user->name, user->bank.balance);
                     tui_ncurses_toast("Mission complete! Reward granted", 900);
                     mission_load_user(user->name, user);
                 } else {
@@ -1155,7 +1240,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 /* show final summary and wait for Enter (or q/Esc) to return */
                 werase(win);
                 box(win, 0, 0);
-                mvwprintw(win, 2, 4, "Typing Practice Complete!");
+                mvwprintw(win, 2, 4, "%s Complete!", m->name);
                 mvwprintw(win, 4, 4, "Time: %.2f sec", elapsed);
                 mvwprintw(win, 5, 4, "Accuracy: %.2f%% (%d/%d)", accuracy, total_correct, total_typed);
                 mvwprintw(win, 6, 4, "WPM: %.2f", wpm);
@@ -1254,7 +1339,9 @@ static void handle_mission_play_math(User *user, Mission *m) {
     int width = COLS - 10;
     int starty = 3;
     int startx = 5;
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Math Quiz (Enter answer; q to quit)");
+    char title[128];
+    snprintf(title, sizeof(title), "%s (Enter answer; q to quit)", m->name);
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, title);
     keypad(win, TRUE);
 
     while (solved < required) {
@@ -1287,7 +1374,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
         while (1) {
             werase(win);
             box(win, 0, 0);
-            mvwprintw(win, 2, 4, "Math Quiz: %d / %d", solved, required);
+            mvwprintw(win, 2, 4, "%s: %d / %d", m->name, solved, required);
             mvwprintw(win, 4, 4, "%s", prompt);
             mvwprintw(win, 4, 4 + (int)strlen(prompt), "%s", ibuf);
             mvwprintw(win, height - 3, 2, "Enter numeric answer and press Enter. q to cancel.");
@@ -1335,7 +1422,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
     /* show summary and leaderboard */
     werase(win);
     box(win, 0, 0);
-    mvwprintw(win, 2, 4, "Math Quiz Complete!");
+    mvwprintw(win, 2, 4, "%s Complete!", m->name);
     mvwprintw(win, 4, 4, "Total time: %.2f sec for %d problems", total_seconds, required);
     append_math_leaderboard(user->name, m->id, total_seconds);
 
@@ -1378,7 +1465,6 @@ static void handle_mission_play_math(User *user, Mission *m) {
     wgetch(win);
 
     if (mission_complete(user->name, m->id)) {
-        user_update_balance(user->name, user->bank.balance);
         tui_ncurses_toast("Mission complete! Reward granted", 900);
         mission_load_user(user->name, user);
     } else {

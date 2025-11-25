@@ -143,34 +143,80 @@ static void handle_student_list(void) {
     if (count == 0) {
         tui_ncurses_toast("No student accounts", 800);
         return;
-    }
+    }   
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, 2, 3, "Student Management (+/- adjust balance, q to close)");
     int highlight = 0;
+    int scroll_offset = 0; /* track which student is at the top of the visible list */
+    /* leave two extra rows free so content doesn't touch the box borders */
+    int visible_rows = height - 5;
     keypad(win, TRUE);
     while (1) {
         werase(win);
         box(win, 0, 0);
         mvwprintw(win, 0, 2, " Student Management (+/- adjust balance, q to close) ");
-        for (int i = 0; i < count && i < height - 2; ++i) {
-            if (i == highlight) {
+
+        /* table header */
+        int header_row = 1;
+        mvwprintw(win, header_row, 2, "%-20s %10s %8s %8s %12s", "Name", "Deposit", "Cash", "Rating", "Missions");
+        mvwprintw(win, header_row + 1, 2, "---------------------------------------------------------------");
+
+        /* ensure highlight is within visible range; adjust scroll_offset if needed */
+        if (highlight < scroll_offset) {
+            scroll_offset = highlight;
+        } else if (highlight >= scroll_offset + visible_rows) {
+            scroll_offset = highlight - visible_rows + 1;
+        }
+        
+        /* draw visible students */
+        for (int i = 0; i < visible_rows && scroll_offset + i < count; ++i) {
+            int student_idx = scroll_offset + i;
+            int row = header_row + 2 + i; /* leave room for header + separator */
+            if (student_idx == highlight) {
                 wattron(win, A_REVERSE);
             }
-            User *entry = students[i];
-            mvwprintw(win, 1 + i, 2, "%s Deposit:%dCr Cash:%dCr Rating:%c Missions:%d/%d", entry->name, entry->bank.balance,
-                      entry->bank.cash, entry->bank.rating, entry->completed_missions, entry->total_missions);
-            if (i == highlight) {
+            User *entry = students[student_idx];
+            mvwprintw(win, row, 2, "%-20.20s %10d %8d %8c %6d/%-6d",
+                      entry->name,
+                      entry->bank.balance,
+                      entry->bank.cash,
+                      entry->bank.rating,
+                      entry->completed_missions,
+                      entry->total_missions);
+            if (student_idx == highlight) {
                 wattroff(win, A_REVERSE);
             }
         }
+
+        /* draw scroll bar on right side */
+        int scrollbar_col = width - 2;
+        int scrollbar_height = visible_rows;
+        /* calculate thumb position and size */
+        int thumb_size = (count > 0) ? ((visible_rows * visible_rows) / count) : visible_rows;
+        if (thumb_size < 1) thumb_size = 1;
+        int thumb_pos = (count > visible_rows) ? ((scroll_offset * (scrollbar_height - thumb_size)) / (count - visible_rows)) : 0;
+        /* draw scrollbar track and thumb aligned with student rows (lower by header) */
+        int scrollbar_start_row = header_row + 2; /* align with first student row */
+        for (int i = 0; i < scrollbar_height; ++i) {
+            if (i >= thumb_pos && i < thumb_pos + thumb_size) {
+                mvwaddch(win, scrollbar_start_row + i, scrollbar_col, '#');
+            } else {
+                mvwaddch(win, scrollbar_start_row + i, scrollbar_col, '|');
+            }
+        }
+
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == KEY_UP) {
-            highlight = (highlight - 1 + count) % count;
-        } else if (ch == KEY_DOWN) {
-            highlight = (highlight + 1) % count;
-        } else if (ch == '+' || ch == '=') {
+            if (highlight > 0) {
+                highlight--;
+            }
+         } else if (ch == KEY_DOWN) {
+            if (highlight < count - 1) {
+                highlight++;
+            }
+         } else if (ch == '+' || ch == '=') {
             account_add_tx(students[highlight], 50, "ADMIN_GRANT");
             tui_ncurses_toast("+50Cr granted", 700);
         } else if (ch == '-' || ch == '_') {
