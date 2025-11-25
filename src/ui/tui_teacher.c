@@ -196,14 +196,15 @@ static void handle_student_list(void) {
         int thumb_size = (count > 0) ? ((visible_rows * visible_rows) / count) : visible_rows;
         if (thumb_size < 1) thumb_size = 1;
         int thumb_pos = (count > visible_rows) ? ((scroll_offset * (scrollbar_height - thumb_size)) / (count - visible_rows)) : 0;
-         /* draw scrollbar track and thumb */
-         for (int i = 0; i < scrollbar_height; ++i) {
-             if (i >= thumb_pos && i < thumb_pos + thumb_size) {
-                 mvwaddch(win, 1 + i, scrollbar_col, '#');
-             } else {
-                 mvwaddch(win, 1 + i, scrollbar_col, '|');
-             }
-         }
+        /* draw scrollbar track and thumb aligned with student rows (lower by header) */
+        int scrollbar_start_row = header_row + 2; /* align with first student row */
+        for (int i = 0; i < scrollbar_height; ++i) {
+            if (i >= thumb_pos && i < thumb_pos + thumb_size) {
+                mvwaddch(win, scrollbar_start_row + i, scrollbar_col, '#');
+            } else {
+                mvwaddch(win, scrollbar_start_row + i, scrollbar_col, '|');
+            }
+        }
 
         wrefresh(win);
         int ch = wgetch(win);
