@@ -309,7 +309,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_mission_preview(mission_win, user);
     tui_common_destroy_box(mission_win);
 
-    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status [a]");
+    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
@@ -894,37 +894,6 @@ static void handle_class_seats_view(User *user) {
         "Class Seats (q to close)"
     );
 
-    // win 내부용 출력 시작 좌표
-    int start_y = 2;
-    int start_x = 2;
-
-    // 6행 × 5열 = 30석 출력
-    for (int row = 0; row < 6; row++) {
-        for (int col = 0; col < 5; col++) {
-            int seat_no = row * 5 + col + 1;
-
-            char buf[128];
-            if (strlen(g_seats[seat_no].name) == 0) {
-                snprintf(buf, sizeof(buf), "[%2d: empty]", seat_no);
-            } else {
-                snprintf(buf, sizeof(buf), "[%2d: %s]", seat_no, g_seats[seat_no].name);
-            }
-
-            mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
-        }
-    }
-
-    wrefresh(win);
-
-    // q 누르면 종료
-    int ch;
-    while ((ch = wgetch(win)) != 'q') {}
-
-    delwin(win);
-
-}
-
-
     keypad(win, TRUE);
 
     int running = 1;
@@ -933,7 +902,26 @@ static void handle_class_seats_view(User *user) {
         box(win, 0, 0);
 
         mvwprintw(win, 1, 2, "Here you can manage class seats for %s", user->name);
-        mvwprintw(win, 3, 2, "- TODO: implement class seats UI here -");
+
+        // === 좌석 출력 시작 ===
+        int start_y = 3;
+        int start_x = 2;
+
+        for (int row = 0; row < 6; row++) {
+            for (int col = 0; col < 5; col++) {
+                int seat_no = row * 5 + col + 1;
+
+                char buf[128];
+                if (strlen(g_seats[seat_no].name) == 0)
+                    snprintf(buf, sizeof(buf), "[%2d: empty]", seat_no);
+                else
+                    snprintf(buf, sizeof(buf), "[%2d: %s]", seat_no, g_seats[seat_no].name);
+
+                // col * 18은 좌석 표시 간격 (길면 조절 가능)
+                mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
+            }
+        }
+        // === 좌석 출력 끝 ===
 
         wrefresh(win);
 
@@ -945,6 +933,7 @@ static void handle_class_seats_view(User *user) {
 
     tui_common_destroy_box(win);
 }
+
 
 /* --- Mission play screens (typing practice / math quiz) --- */
 
@@ -1030,7 +1019,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 1, 2, "%s - line %d of %d", m->name, cur+1, lines);
+        mvwprintw(win, 1, 2, "Typing Practice - line %d of %d", cur+1, lines);
         mvwprintw(win, height - 3, 2, "Backspace allowed. Enter -> next line. Esc -> cancel.");
 
         /* draw each text, then an empty row, then input row, then an empty row */
@@ -1117,7 +1106,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 /* show final summary and wait for Enter (or q/Esc) to return */
                 werase(win);
                 box(win, 0, 0);
-                mvwprintw(win, 2, 4, "%s Complete!", m->name);
+                mvwprintw(win, 2, 4, "Typing Practice Complete!");
                 mvwprintw(win, 4, 4, "Time: %.2f sec", elapsed);
                 mvwprintw(win, 5, 4, "Accuracy: %.2f%% (%d/%d)", accuracy, total_correct, total_typed);
                 mvwprintw(win, 6, 4, "WPM: %.2f", wpm);
@@ -1216,9 +1205,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
     int width = COLS - 10;
     int starty = 3;
     int startx = 5;
-    char title[128];
-    snprintf(title, sizeof(title), "%s (Enter answer; q to quit)", m->name);
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, title);
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Math Quiz (Enter answer; q to quit)");
     keypad(win, TRUE);
 
     while (solved < required) {
@@ -1251,7 +1238,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
         while (1) {
             werase(win);
             box(win, 0, 0);
-            mvwprintw(win, 2, 4, "%s: %d / %d", m->name, solved, required);
+            mvwprintw(win, 2, 4, "Math Quiz: %d / %d", solved, required);
             mvwprintw(win, 4, 4, "%s", prompt);
             mvwprintw(win, 4, 4 + (int)strlen(prompt), "%s", ibuf);
             mvwprintw(win, height - 3, 2, "Enter numeric answer and press Enter. q to cancel.");
@@ -1299,7 +1286,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
     /* show summary and leaderboard */
     werase(win);
     box(win, 0, 0);
-    mvwprintw(win, 2, 4, "%s Complete!", m->name);
+    mvwprintw(win, 2, 4, "Math Quiz Complete!");
     mvwprintw(win, 4, 4, "Total time: %.2f sec for %d problems", total_seconds, required);
     append_math_leaderboard(user->name, m->id, total_seconds);
 
