@@ -169,6 +169,22 @@ static void prompt_register(void) {
             fprintf(fp1, "\n%s,%d,%c,%d,%d", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan);
             fclose(fp1);
         }
+
+         /* 🔹 여기서 items용 빈 CSV 생성: data/items/(username).csv */
+        {
+            char path[256];
+            /* data/items 디렉터리는 미리 만들어져 있다고 가정 */
+            snprintf(path, sizeof(path), "data/items/%s_items.csv", username);
+
+            FILE *fp_items = fopen(path, "w");
+            if (fp_items) {
+                /* 처음에는 비어 있는 파일만 필요하다고 했으니 아무 것도 안 쓰고 닫기 */
+                fclose(fp_items);
+            } else {
+                /* 디버그 로그 정도만 찍고 싶으면 fprintf(stderr, ...) 써도 됨 */
+                // fprintf(stderr, "Failed to create items file: %s\n", path);
+            }
+        }
     } else {
         tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }

@@ -1738,7 +1738,7 @@ static void handle_stock_graph_view(const Stock *stock) {
         /* 그래프 그릴 영역 설정 */
         int plot_top    = 2;
         int plot_bottom = height - 3;        // 아래 한 줄은 안내용
-        int plot_left   = 2;
+        int plot_left   = 5;
         int plot_right  = width - 3;
 
         int plot_height = plot_bottom - plot_top + 1;
@@ -1793,6 +1793,7 @@ static void handle_stock_graph_view(const Stock *stock) {
             int bar_h = (int)(ratio * (plot_height - 1)) + 1; // 최소 1칸은 찍히게
             if (bar_h > plot_height) bar_h = plot_height;
 
+            
             int screen_x = plot_left + x;
             int y = plot_bottom - (bar_h - 1);
             if (y < plot_top) {
@@ -1800,6 +1801,15 @@ static void handle_stock_graph_view(const Stock *stock) {
             }
             mvwaddch(win, y, screen_x, '@');
             }
+
+            // 막대그래프
+        //     for (int k = 0; k < bar_h; ++k) {
+        //         int y = plot_bottom - k;
+        //         if (y < plot_top) break; 
+        //         mvwaddch(win, y, screen_x, '@');
+        //     }
+        // }
+
 
         /* 아래쪽 안내 & 현재 구간 표시 */
         mvwprintw(win, height - 2, 2,
