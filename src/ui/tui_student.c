@@ -29,6 +29,7 @@
 #include "../../include/domain/notification.h"
 #include "../../include/domain/account.h"
 #include "../../include/domain/message.h"
+#include "../../include/domain/qotd.h"
 
 #include <stdbool.h>   // bool 쓸 거면 필요
 
@@ -102,6 +103,14 @@ static void qotd_mark_solved(const char *name) {
     qotd_solved_users[qotd_solved_count++] = strdup(name);
 }
 
+static void qotd_runtime_clear(void) {
+    for (int i = 0; i < qotd_solved_count; ++i) {
+        if (qotd_solved_users[i]) free(qotd_solved_users[i]);
+        qotd_solved_users[i] = NULL;
+    }
+    qotd_solved_count = 0;
+}
+
 /* QOTD viewer:
  * - open with 'd' from student menu
  * - shows question and choices
@@ -112,6 +121,24 @@ static void qotd_mark_solved(const char *name) {
  */
 static void handle_qotd_view(User *user) {
     if (!user) return;
+    /* load today's solved users into runtime cache */
+    char today[32];
+    time_t tnow = time(NULL);
+    struct tm *tmnow = localtime(&tnow);
+    if (tmnow) {
+        strftime(today, sizeof(today), "%Y-%m-%d", tmnow);
+        qotd_runtime_clear();
+        char **users = NULL;
+        int ucount = 0;
+        if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
+            for (int i = 0; i < ucount; ++i) {
+                if (users[i]) qotd_mark_solved(users[i]);
+                free(users[i]);
+            }
+            free(users);
+        }
+    }
+
     if (qotd_is_solved(user->name)) {
         tui_ncurses_toast("QOTD already solved", 900);
         return;
@@ -156,6 +183,10 @@ static void handle_qotd_view(User *user) {
                 /* use account_add_tx to adjust balance and persist tx */
                 int ok = account_add_tx(user, reward, "QOTD");
                 if (ok) {
+                    /* persist solved entry for today */
+                    if (tmnow) {
+                        qotd_record_entry(today, user->name, question, "solved");
+                    }
                     qotd_mark_solved(user->name);
                     /* persist balance to accounts CSV as other flows do */
                     user_update_balance(user->name, user->bank.balance);
@@ -290,6 +321,25 @@ static void render_news(WINDOW *win, const User *user) {
 
 static void draw_dashboard(User *user, const char *status) {
     erase();
+    /* refresh today's QOTD runtime cache so hints reflect persisted state */
+    if (user) {
+        char today[32];
+        time_t tnow = time(NULL);
+        struct tm *tmnow = localtime(&tnow);
+        if (tmnow) {
+            strftime(today, sizeof(today), "%Y-%m-%d", tmnow);
+            qotd_runtime_clear();
+            char **users = NULL;
+            int ucount = 0;
+            if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
+                for (int i = 0; i < ucount; ++i) {
+                    if (users[i]) qotd_mark_solved(users[i]);
+                    free(users[i]);
+                }
+                free(users);
+            }
+        }
+    }
     mvprintw(1, (COLS - 30) / 2, "Class Royale - Student Dashboard");
     mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
     mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
