@@ -152,40 +152,10 @@ int stock_pay_dividends(User *user) {
     return total_dividend;
 }
 
-static void seed_default_stocks(void) {
-    /* CSV 없을 때를 대비한 기본값 (원하면 수정/삭제 가능) */
-    memset(g_stocks, 0, sizeof(g_stocks));
-    g_stock_count = 2;
-
-    Stock *s = &g_stocks[0];
-    snprintf(s->name, sizeof(s->name), "CRX");
-    s->id            = 1;
-    s->log_len       = 2;
-    s->log[0]        = 1000;
-    s->log[1]        = 1200;
-    s->base_price    = s->log[0];
-    s->previous_price= s->log[0];
-    s->current_price = s->log[1];
-    snprintf(s->news, sizeof(s->news),
-             "Class Royale index rising");
-
-    s = &g_stocks[1];
-    snprintf(s->name, sizeof(s->name), "EDU");
-    s->id            = 2;
-    s->log_len       = 2;
-    s->log[0]        = 800;
-    s->log[1]        = 900;
-    s->base_price    = s->log[0];
-    s->previous_price= s->log[0];
-    s->current_price = s->log[1];
-    snprintf(s->news, sizeof(s->news),
-             "Education sector benefits");
-}
 
 static void stock_load_from_csv(const char *path) {
     FILE *fp = fopen(path, "r");
     if (!fp) {
-        seed_default_stocks();
         return;
     }
 
@@ -194,7 +164,6 @@ static void stock_load_from_csv(const char *path) {
     /* 1줄째: 시간일 수도 있고 아닐 수도 있음 */
     if (!fgets(line, sizeof(line), fp)) {
         fclose(fp);
-        seed_default_stocks();
         return;
     }
 
@@ -273,7 +242,6 @@ PARSE_LINE_AS_STOCK:
     fclose(fp);
 
     if (g_stock_count == 0) {
-        seed_default_stocks();
     }
 }
 
@@ -309,20 +277,6 @@ static void stock_append_price(Stock *s, int new_price) {
     }
 }
 
-static void stock_random_step(Stock *s) {
-    if (!s) return;
-
-    int delta = 0;
-    int r = rand() % 3; // 0,1,2
-    if (r == 0)      delta = -10;
-    else if (r == 1) delta = 0;
-    else             delta = 10;
-
-    int new_price = s->current_price + delta;
-    if (new_price < 0) new_price = 0;
-
-    stock_append_price(s, new_price);
-}
 
 void stock_maybe_update_by_time(void) {
     ensure_seeded();
@@ -346,13 +300,6 @@ void stock_maybe_update_by_time(void) {
     int new_steps = total_hours - g_applied_hours;
     if (new_steps <= 0) {
         return;
-    }
-
-    /* 새로 지난 시간만큼 주가 여러 번 움직이기 */
-    for (int step = 0; step < new_steps; ++step) {
-        for (int i = 0; i < g_stock_count; ++i) {
-            stock_random_step(&g_stocks[i]);
-        }
     }
 
     g_applied_hours = total_hours;

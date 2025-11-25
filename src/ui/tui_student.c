@@ -1591,19 +1591,17 @@ static void handle_stock_graph_view(const Stock *stock) {
             if (bar_h > plot_height) bar_h = plot_height;
 
             int screen_x = plot_left + x;
-            for (int k = 0; k < bar_h; ++k) {
-                int y = plot_bottom - k;
-                if (y < plot_top) break;
-                mvwaddch(win, y, screen_x, '@');
+            int y = plot_bottom - (bar_h - 1);
+            if (y < plot_top) {
+                y = plot_top;
             }
-        }
+            mvwaddch(win, y, screen_x, '@');
+            }
 
         /* 아래쪽 안내 & 현재 구간 표시 */
         mvwprintw(win, height - 2, 2,
                   "←/→ scroll  q back  range [%d - %d] / %d",
-                  offset,
-                  window_end - 1,
-                  len);
+                  offset, window_end - 1, len);
 
         wrefresh(win);
 
