@@ -9,6 +9,7 @@
 #include "../../include/domain/economy.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
+static void user_stock_load_holdings(User *user);
 
 static void draw_welcome(int highlight, const char *status_line) {
     static WINDOW *win = NULL;
@@ -237,4 +238,47 @@ User *tui_login_flow(void) {
             return NULL;
         }
     }
+}
+
+/* data/stocks/(username).csv 에 저장된
+ * "종목명,보유량" 들을 user->holdings[] 로 불러온다
+ */
+static void user_stock_load_holdings(User *user) {
+    if (!user) return;
+
+    char path[256];
+    snprintf(path, sizeof(path), "data/stocks/%s.csv", user->name);
+
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return;  // 파일 없으면 보유량 없음
+    }
+
+    user->holding_count = 0;  // 초기화
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        // 공백/개행 제거
+        char *p = strtok(line, ", \t\r\n");
+        if (!p) continue;
+
+        char symbol[64];
+        snprintf(symbol, sizeof(symbol), "%s", p);
+
+        p = strtok(NULL, ", \t\r\n");
+        if (!p) continue;
+
+        int qty = atoi(p);
+        if (qty <= 0) continue;
+
+        if (user->holding_count >= MAX_HOLDINGS)
+            break;
+
+        StockHolding *h = &user->holdings[user->holding_count++];
+        memset(h, 0, sizeof(*h));
+        snprintf(h->symbol, sizeof(h->symbol), "%s", symbol);
+        h->qty = qty;
+    }
+
+    fclose(fp);
 }
