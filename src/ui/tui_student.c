@@ -412,21 +412,24 @@ static void handle_mission_board(User *user) {
                 highlight = (highlight + 1) % available;
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
-            int mid = user->missions[highlight].id;
-            Mission selected = user->missions[highlight];
-            if (selected.completed) {
+            Mission *sel = &user->missions[highlight];
+            if (sel->completed) {
                 tui_ncurses_toast("Mission already completed", 800);
             } else {
-                if (selected.type == 0) {
-                    handle_mission_play_typing(user, &selected);
-                } else if (selected.type == 1) {
-                    handle_mission_play_math(user, &selected);
+                /* launch appropriate play UI; UI will call mission_complete when finished */
+                if (sel->type == 0) {
+                    handle_mission_play_typing(user, sel);
+                } else {
+                    handle_mission_play_math(user, sel);
                 }
-                /* after returning, reload user missions so UI updates */
+                /* reload user's missions so completion / rewards show immediately */
                 mission_load_user(user->name, user);
                 available = user->mission_count;
-                if (available == 0) highlight = 0;
-                else if (highlight >= available) highlight = available - 1;
+                if (available == 0) {
+                    highlight = 0;
+                } else if (highlight >= available) {
+                    highlight = available - 1;
+                }
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
@@ -1219,7 +1222,6 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 append_typing_leaderboard(user->name, m->id, wpm, accuracy);
 
                 if (mission_complete(user->name, m->id)) {
-                    user_update_balance(user->name, user->bank.balance);
                     tui_ncurses_toast("Mission complete! Reward granted", 900);
                     mission_load_user(user->name, user);
                 } else {
@@ -1454,7 +1456,6 @@ static void handle_mission_play_math(User *user, Mission *m) {
     wgetch(win);
 
     if (mission_complete(user->name, m->id)) {
-        user_update_balance(user->name, user->bank.balance);
         tui_ncurses_toast("Mission complete! Reward granted", 900);
         mission_load_user(user->name, user);
     } else {
