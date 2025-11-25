@@ -49,6 +49,7 @@ static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
 static void handle_account_statistics(User *user);
+static void handle_transactions_view(User *user);
 static void handle_stock_graph_view(const Stock *stock);
 
 static int user_has_mission(User *user, int mission_id) {
@@ -351,8 +352,7 @@ static void draw_dashboard(User *user, const char *status) {
         }
     }
     mvprintw(1, (COLS - 30) / 2, "Class Royale - Student Dashboard");
-    mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
-    mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
+    mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr", user->name, user->bank.balance, user->bank.cash);
     mvprintw(4, 2, "Items owned: %d | Stocks owned: %d", 10, user->holding_count);
     int percent = user->total_missions > 0 ? (user->completed_missions * 100) / user->total_missions : 0;
     const char *mc_label = "Mission Completion Rate:";
@@ -374,7 +374,7 @@ static void draw_dashboard(User *user, const char *status) {
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 5, 2, "Recent Transactions");
+    mvwprintw(account_win, 5, 2, "Recent Transactions [t]");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
@@ -417,7 +417,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_news(news_win, user);
     tui_common_destroy_box(news_win);
 
-    tui_common_draw_help("m:Missions s:Shop a:Account d:QOTD n:Messages q:Logout");
+    tui_common_draw_help("m:Missions s:Shop a:Account t:Transactions d:QOTD n:Messages q:Logout");
     tui_ncurses_draw_status(status);
     refresh();
 }
@@ -893,7 +893,7 @@ static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit / b borrow / r repay / w withdraw / t stats / q close)");
+                                        "Account Management (d deposit / b borrow / r repay / w withdraw / q close)");
     int running = 1;
     while (running) {
         werase(win);
@@ -902,8 +902,8 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 1, 2, "Deposit: %d Cr", user->bank.balance);
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
-        mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  t)stats  q)close");
+        /* rating removed */
+        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -946,12 +946,87 @@ static void handle_account_view(User *user) {
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);
             }
-        } else if (ch == 't' || ch == 'T') {
-            handle_account_statistics(user);
         } else if (ch == 'q' || ch == 27) {
             running = 0;
         }
     }
+    tui_common_destroy_box(win);
+}
+
+static void handle_transactions_view(User *user) {
+    if (!user) return;
+
+    int height = LINES - 4;
+    int width = COLS - 6;
+    WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
+                                        "Transactions (t:stats / q:close)");
+    keypad(win, TRUE);
+
+    char txbuf[8192];
+    txbuf[0] = '\0';
+    int got = account_recent_tx(user->name, ACCOUNT_STATS_MAX_TX, txbuf, sizeof(txbuf));
+
+    char *lines[2048];
+    int line_count = 0;
+    if (got > 0) {
+        char *p = txbuf;
+        while (p && *p && line_count < (int)(sizeof(lines)/sizeof(lines[0]))) {
+            char *nl = strchr(p, '\n');
+            if (nl) *nl = '\0';
+            lines[line_count++] = p;
+            if (!nl) break;
+            p = nl + 1;
+        }
+        /* reverse order so newest transactions appear first */
+        for (int i = 0; i < line_count / 2; ++i) {
+            char *tmp = lines[i];
+            lines[i] = lines[line_count - 1 - i];
+            lines[line_count - 1 - i] = tmp;
+        }
+    }
+
+    int start = 0;
+    int inner_rows = height - 3;
+    int win_w = getmaxx(win);
+    int max_print = win_w - 4;
+    if (max_print < 1) max_print = 1;
+
+    int running = 1;
+    while (running) {
+        werase(win);
+        box(win, 0, 0);
+        mvwprintw(win, 0, 2, " Transactions (t:stats / q:close) ");
+
+        if (line_count == 0) {
+            mvwprintw(win, 2, 2, "No transactions");
+        } else {
+            for (int i = 0; i < inner_rows && (start + i) < line_count; ++i) {
+                mvwprintw(win, 1 + i, 2, "%.*s", max_print, lines[start + i]);
+            }
+            mvwprintw(win, height - 2, 2, "Up/Down/PageUp/PageDown to scroll. t:stats q:close");
+        }
+
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        if (ch == KEY_UP) {
+            if (start > 0) start--;
+        } else if (ch == KEY_DOWN) {
+            if (start + inner_rows < line_count) start++;
+        } else if (ch == KEY_NPAGE) {
+            start += inner_rows;
+            if (start + inner_rows > line_count) start = line_count - inner_rows;
+            if (start < 0) start = 0;
+        } else if (ch == KEY_PPAGE) {
+            start -= inner_rows;
+            if (start < 0) start = 0;
+        } else if (ch == 'q' || ch == 27) {
+            running = 0;
+        } else if (ch == 't' || ch == 'T') {
+            handle_account_statistics(user);
+        }
+    }
+
     tui_common_destroy_box(win);
 }
 
@@ -985,8 +1060,34 @@ static void handle_message_center(User *user) {
         int maxy = getmaxy(win);
         int content_limit = maxy - 3; /* keep last two rows for commands */
         int row = 1;
-        mvwprintw(win, row++, 2, "Inbox for %s", user->name);
 
+        
+        mvwprintw(win, row++, 2, "Inbox for %s", user->name);
+        /* Show latest notices first (top) */
+        if (row <= content_limit) {
+            mvwprintw(win, row++, 2, "Latest notices:");
+            char notice_buf[1024];
+            notice_buf[0] = '\0';
+            int notice_limit = content_limit - row;
+            if (notice_limit < 1) notice_limit = 1;
+            notify_recent_to_buf(user->name, notice_limit, notice_buf, sizeof(notice_buf));
+            char *nb = notice_buf;
+            while (nb && *nb && row <= content_limit) {
+                char *nl = strchr(nb, '\n');
+                if (nl) *nl = '\0';
+                mvwprintw(win, row++, 4, "%s", nb);
+                if (!nl) break;
+                nb = nl + 1;
+            }
+            if (notice_buf[0] == '\0' && row <= content_limit) {
+                mvwprintw(win, row++, 4, "(none)");
+            }
+        }
+
+        /* gap between sections */
+        if (row <= content_limit) row++;
+
+        /* Conversations / partners */
         char partners[32][50];
         int partner_count = message_list_partners(user->name, partners, 32);
         if (partner_count > 0) {
@@ -1002,6 +1103,7 @@ static void handle_message_center(User *user) {
             row++;
         }
 
+        /* Message feed: either specific thread or recent messages */
         char feed[4096];
         feed[0] = '\0';
         int available_lines = content_limit - row;
@@ -1026,26 +1128,6 @@ static void handle_message_center(User *user) {
             mvwprintw(win, row++, 2, "No messages to display.");
         }
 
-        if (row <= content_limit) {
-            mvwprintw(win, row++, 2, "Latest notices:");
-            char notice_buf[1024];
-            notice_buf[0] = '\0';
-            int notice_limit = content_limit - row;
-            if (notice_limit < 1) notice_limit = 1;
-            notify_recent_to_buf(user->name, notice_limit, notice_buf, sizeof(notice_buf));
-            char *nb = notice_buf;
-            while (nb && *nb && row <= content_limit) {
-                char *nl = strchr(nb, '\n');
-                if (nl) *nl = '\0';
-                mvwprintw(win, row++, 4, "%s", nb);
-                if (!nl) break;
-                nb = nl + 1;
-            }
-            if (notice_buf[0] == '\0' && row <= content_limit) {
-                mvwprintw(win, row++, 4, "(none)");
-            }
-        }
-
         mvwprintw(win, maxy - 3, 2, current_peer[0] ? "Viewing conversation - press 'a' to show all" : "Viewing all messages");
         mvwprintw(win, maxy - 2, 2, "Commands: c)compose  v)view user  a)show all  q)close");
         wrefresh(win);
@@ -1058,7 +1140,9 @@ static void handle_message_center(User *user) {
         } else if (ch == 'v' || ch == 'V') {
             char peer[50];
             memset(peer, 0, sizeof(peer));
-            if (tui_ncurses_prompt_line(win, 2, 2, "View conversation with", peer, sizeof(peer), 0) && peer[0]) {
+            int prompt_y = maxy - 4;
+            if (prompt_y < 1) prompt_y = 1;
+            if (tui_ncurses_prompt_line(win, prompt_y, 2, "View conversation with", peer, sizeof(peer), 0) && peer[0]) {
                 trim_whitespace(peer);
                 if (peer[0]) {
                     snprintf(current_peer, sizeof(current_peer), "%s", peer);
@@ -1069,7 +1153,9 @@ static void handle_message_center(User *user) {
             char message[200];
             memset(target, 0, sizeof(target));
             memset(message, 0, sizeof(message));
-            if (!tui_ncurses_prompt_line(win, 2, 2, "Send to (username)", target, sizeof(target), 0) || target[0] == '\0') {
+            int prompt_y = maxy - 4;
+            if (prompt_y < 1) prompt_y = 1;
+            if (!tui_ncurses_prompt_line(win, prompt_y, 2, "Send to (username)", target, sizeof(target), 0) || target[0] == '\0') {
                 continue;
             }
             trim_whitespace(target);
@@ -1081,7 +1167,7 @@ static void handle_message_center(User *user) {
                 tui_ncurses_toast("User not found", 900);
                 continue;
             }
-            if (!tui_ncurses_prompt_line(win, 3, 2, "Message", message, sizeof(message), 0) || message[0] == '\0') {
+            if (!tui_ncurses_prompt_line(win, prompt_y-1, 2, "Message", message, sizeof(message), 0) || message[0] == '\0') {
                 tui_ncurses_toast("Message canceled", 700);
                 continue;
             }
@@ -1129,6 +1215,11 @@ void tui_student_loop(User *user) {
             case 'A':
                 handle_account_view(user);
                 status = "Account operation completed";
+                break;
+            case 't':
+            case 'T':
+                handle_transactions_view(user);
+                status = "Viewed transactions";
                 break;
             case 'k':
             case 'K':

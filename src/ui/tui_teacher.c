@@ -159,8 +159,8 @@ static void handle_student_list(void) {
 
         /* table header */
         int header_row = 1;
-        mvwprintw(win, header_row, 2, "%-20s %10s %8s %8s %12s", "Name", "Deposit", "Cash", "Rating", "Missions");
-        mvwprintw(win, header_row + 1, 2, "---------------------------------------------------------------");
+        mvwprintw(win, header_row, 2, "%-20s %10s %8s %8s %12s", "Name", "Deposit", "Cash", "Loan", "Missions");
+        mvwprintw(win, header_row + 1, 2, "-----------------------------------------------------------------------");
 
         /* ensure highlight is within visible range; adjust scroll_offset if needed */
         if (highlight < scroll_offset) {
@@ -177,11 +177,11 @@ static void handle_student_list(void) {
                 wattron(win, A_REVERSE);
             }
             User *entry = students[student_idx];
-            mvwprintw(win, row, 2, "%-20.20s %10d %8d %8c %6d/%-6d",
+            mvwprintw(win, row, 2, "%-20.20s %10d %8d %8d %6d/%-6d",
                       entry->name,
                       entry->bank.balance,
                       entry->bank.cash,
-                      entry->bank.rating,
+                      entry->bank.loan,
                       entry->completed_missions,
                       entry->total_missions);
             if (student_idx == highlight) {

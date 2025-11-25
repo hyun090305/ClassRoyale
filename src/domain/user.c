@@ -93,9 +93,7 @@ static void seed_defaults(void) {
         if (u.bank.cash == 0) {
             u.bank.cash = 0;
         }
-        if (u.bank.rating == 0) {
-            u.bank.rating = 'C';
-        }
+        /* rating feature removed: no-op */
         /* ensure per-user tx file exists and attach fp for writing */
         /* holdings/items already zeroed by (User){0}; ensure counts are sensible */
         if (u.holding_count < 0) u.holding_count = 0;
@@ -121,25 +119,47 @@ static void seed_defaults(void) {
         if (line1[0] == '\0') {
             continue;
         }
-        // flexible CSV parsing: name,balance,rating[,cash[,loan[,last_interest_ts[,log]]]]
-        char *tokens[8] = {0};
+        /* flexible CSV parsing (support old format with rating and new format without):
+         * Old: name,balance,rating,cash,loan,last_interest_ts,log
+         * New: name,balance,cash,loan,last_interest_ts,log
+         */
+        char *tokens[12] = {0};
         int tc = 0;
         char *p = strtok(line1, ",");
         while (p && tc < (int)(sizeof(tokens)/sizeof(tokens[0]))) {
             tokens[tc++] = p;
             p = strtok(NULL, ",");
         }
-        if (tc < 3) continue; /* need at least name,balance,rating */
+        if (tc < 2) continue; /* need at least name,balance */
         char *name = tokens[0];
         char *balance = tokens[1];
-        char *rating = tokens[2];
-        char *cash_tok = tc > 3 ? tokens[3] : NULL;
-        char *loan_tok = tc > 4 ? tokens[4] : NULL;
-        char *last_interest_tok = tc > 5 ? tokens[5] : NULL;
-        char *log = tc > 6 ? tokens[6] : NULL;
+        char *cash_tok = NULL;
+        char *loan_tok = NULL;
+        char *last_interest_tok = NULL;
+        char *log = NULL;
 
-        if (!name || !balance || !rating) {
-            continue;
+        /* Detect whether the file uses the old "rating" field by checking
+         * whether the token that would be last_interest_ts (at index 5)
+         * looks like a plausible epoch timestamp (> 1e9). If so, assume
+         * old format (rating present at tokens[2]). Otherwise assume new format. */
+        if (tc >= 6 && atol(tokens[5]) > 1000000000L) {
+            /* Old format: name,balance,rating,cash,loan,last_interest_ts,log */
+            cash_tok = tc > 3 ? tokens[3] : NULL;
+            loan_tok = tc > 4 ? tokens[4] : NULL;
+            last_interest_tok = tc > 5 ? tokens[5] : NULL;
+            log = tc > 6 ? tokens[6] : NULL;
+        } else if (tc >= 5 && atol(tokens[4]) > 1000000000L) {
+            /* New format: name,balance,cash,loan,last_interest_ts,log */
+            cash_tok = tc > 2 ? tokens[2] : NULL;
+            loan_tok = tc > 3 ? tokens[3] : NULL;
+            last_interest_tok = tc > 4 ? tokens[4] : NULL;
+            log = tc > 5 ? tokens[5] : NULL;
+        } else {
+            /* Fallback: interpret third token as cash if present */
+            cash_tok = tc > 2 ? tokens[2] : NULL;
+            loan_tok = tc > 3 ? tokens[3] : NULL;
+            last_interest_tok = tc > 4 ? tokens[4] : NULL;
+            log = tc > 5 ? tokens[5] : NULL;
         }
         if (g_user_count >= MAX_STUDENTS) {
             break;
@@ -147,7 +167,6 @@ static void seed_defaults(void) {
         for (int i = 0; i < g_user_count; ++i) {
             if (strcmp(g_users[i].name, name) == 0) {
                 g_users[i].bank.balance = atoi(balance);
-                g_users[i].bank.rating  = atoi(rating);
                 g_users[i].bank.cash = cash_tok ? atoi(cash_tok) : 0;
                 g_users[i].bank.loan = loan_tok ? atoi(loan_tok) : 0;
                 if (last_interest_tok) {
@@ -298,13 +317,12 @@ int user_update_balance(const char *username, int new_balance) {
         return found;
     }
     for (size_t i = 0; i < g_user_count; ++i) {
-        /* CSV format (extended): name,balance,rating,cash,loan
-         * Backwards compatibility: older readers ignoring extra columns will still work.
+        /* CSV format (new): name,balance,cash,loan,last_interest_ts,log
+         * For compatibility the loader accepts old rows that included a rating column.
          */
-        fprintf(fp, "%s,%d,%d,%d,%d,%ld,%s\n",
+        fprintf(fp, "%s,%d,%d,%d,%ld,%s\n",
                 g_users[i].name,
                 g_users[i].bank.balance,
-                (int)g_users[i].bank.rating,
                 g_users[i].bank.cash,
                 g_users[i].bank.loan,
                 g_users[i].bank.last_interest_ts,

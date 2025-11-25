@@ -47,7 +47,6 @@ struct Bank {
     int cash;   /* physical/portable cash (new) */
     int loan;   /* outstanding loan amount (new) */
     char log[128];
-    char rating;
     long last_interest_ts; /* epoch seconds when interest was last applied */
 };
 

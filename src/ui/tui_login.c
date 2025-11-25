@@ -177,7 +177,7 @@ static void prompt_register(void) {
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
     newbie.bank.cash = 0;
     newbie.bank.loan = 0;
-    newbie.bank.rating = 'C';
+    /* rating removed */
     if (user_register(&newbie)) {
         tui_ncurses_toast("Registration complete! Please log in", 1200);
         /* persist only on successful registration */
@@ -188,9 +188,9 @@ static void prompt_register(void) {
         }
         FILE *fp1 = fopen("data/accounts.csv", "a");
         if (fp1) {
-            /* persist format: name,balance,rating,cash,loan,last_interest_ts,log */
+            /* persist format: name,balance,cash,loan,last_interest_ts,log */
             long ts = (long)time(NULL);
-            fprintf(fp1, "\n%s,%d,%c,%d,%d,%ld,", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan, ts);
+            fprintf(fp1, "\n%s,%d,%d,%d,%ld,", username, newbie.bank.balance, newbie.bank.cash, newbie.bank.loan, ts);
             fclose(fp1);
         }
 
