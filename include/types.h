@@ -78,6 +78,8 @@ struct Stock {
     int base_price;
     int current_price;
     int previous_price;
+    int log[200];
+    int log_len;
     char news[200];
     int dividend_per_tick;
 };
