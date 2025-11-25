@@ -33,14 +33,14 @@ void notify_push(const char *username, const char *message) {
     csv_ensure_dir("data/notifications");
     char path[512];
     snprintf(path, sizeof(path), "data/notifications/%s.csv", username);
-    long ts = time(NULL);
+    time_t ts = time(NULL);
     /* append: timestamp, message */
     /* sanitize newlines in message */
     char msgbuf[256];
     strncpy(msgbuf, message, sizeof(msgbuf)-1);
     msgbuf[sizeof(msgbuf)-1] = '\0';
     for (char *p = msgbuf; *p; ++p) if (*p == '\n' || *p == '\r') *p = ' ';
-    csv_append_row(path, "%ld,%s", ts, msgbuf);
+    csv_append_row(path, "%lld,%s", (long long)ts, msgbuf);
 }
 
 int notify_recent(const char *username, int limit) {
@@ -79,11 +79,11 @@ int notify_recent_to_buf(const char *username, int limit, char *buf, size_t bufl
         if (nl) *nl = '\0';
         /* split "ts,msg" */
         char *comma = strchr(p, ',');
-        long ts = 0;
+        time_t ts = 0;
         char *msg = NULL;
         if (comma) {
             *comma = '\0';
-            ts = atol(p);
+            ts = (time_t)atoll(p);
             msg = comma + 1;
         } else {
             msg = p;
@@ -94,10 +94,10 @@ int notify_recent_to_buf(const char *username, int limit, char *buf, size_t bufl
         if (ts <= 0) {
             snprintf(timestr, sizeof(timestr), "unknown");
         } else {
-            long diff = (long)(now - (time_t)ts);
+            long diff = (long)(now - ts);
             if (diff < 0) {
                 /* future? show absolute */
-                struct tm *tm = localtime((time_t *)&ts);
+                struct tm *tm = localtime(&ts);
                 if (tm) strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M", tm);
                 else snprintf(timestr, sizeof(timestr), "%ld", ts);
             } else if (diff < 60) {
@@ -107,7 +107,7 @@ int notify_recent_to_buf(const char *username, int limit, char *buf, size_t bufl
             } else if (diff < 86400) {
                 snprintf(timestr, sizeof(timestr), "%ld hours ago", diff / 3600);
             } else {
-                struct tm *tm = localtime((time_t *)&ts);
+                struct tm *tm = localtime(&ts);
                 if (tm) strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M", tm);
                 else snprintf(timestr, sizeof(timestr), "%ld", ts);
             }
