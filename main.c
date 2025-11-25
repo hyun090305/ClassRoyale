@@ -20,7 +20,6 @@ typedef struct {
     char *name;
     int balance;
     FILE *fp;
-    char rating;
 } Bank;
 
 typedef struct {

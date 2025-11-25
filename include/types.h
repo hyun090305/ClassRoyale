@@ -47,7 +47,6 @@ struct Bank {
     int cash;   /* physical/portable cash (new) */
     int loan;   /* outstanding loan amount (new) */
     char log[128];
-    char rating;
     long last_interest_ts; /* epoch seconds when interest was last applied */
 };
 
@@ -82,7 +81,6 @@ struct Stock {
     int log[200];
     int log_len;
     char news[200];
-    int dividend_per_tick;
 };
 
 struct User {

@@ -9,6 +9,7 @@
 #include "../../include/domain/economy.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
+static void user_stock_load_holdings(User *user);
 
 static void draw_welcome(int highlight, const char *status_line) {
     static WINDOW *win = NULL;
@@ -116,6 +117,10 @@ static User *prompt_login(void) {
         return NULL;
     }
     User *user = user_lookup(username);
+
+    if (user) {
+    user_stock_load_holdings(user);
+}
     /* Apply accumulated hourly interest since last_interest_ts */
     if (user) {
         long now = (long)time(NULL);
@@ -172,7 +177,7 @@ static void prompt_register(void) {
     newbie.bank.balance = role == STUDENT ? 1000 : 5000;
     newbie.bank.cash = 0;
     newbie.bank.loan = 0;
-    newbie.bank.rating = 'C';
+    /* rating removed */
     if (user_register(&newbie)) {
         tui_ncurses_toast("Registration complete! Please log in", 1200);
         /* persist only on successful registration */
@@ -183,27 +188,22 @@ static void prompt_register(void) {
         }
         FILE *fp1 = fopen("data/accounts.csv", "a");
         if (fp1) {
-            /* persist format: name,balance,rating,cash,loan,last_interest_ts,log */
+            /* persist format: name,balance,cash,loan,last_interest_ts,log */
             long ts = (long)time(NULL);
-            fprintf(fp1, "\n%s,%d,%c,%d,%d,%ld,", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan, ts);
+            fprintf(fp1, "\n%s,%d,%d,%d,%ld,", username, newbie.bank.balance, newbie.bank.cash, newbie.bank.loan, ts);
             fclose(fp1);
         }
 
-         /* 🔹 여기서 items용 빈 CSV 생성: data/items/(username).csv */
         {
             char path[256];
-            /* data/items 디렉터리는 미리 만들어져 있다고 가정 */
-            snprintf(path, sizeof(path), "data/items/%s_items.csv", username);
-
-            FILE *fp_items = fopen(path, "w");
-            if (fp_items) {
-                /* 처음에는 비어 있는 파일만 필요하다고 했으니 아무 것도 안 쓰고 닫기 */
-                fclose(fp_items);
-            } else {
-                /* 디버그 로그 정도만 찍고 싶으면 fprintf(stderr, ...) 써도 됨 */
-                // fprintf(stderr, "Failed to create items file: %s\n", path);
+            snprintf(path, sizeof(path), "data/stocks/%s.csv", username);
+            FILE *fp_stocks = fopen(path, "w");
+            if (fp_stocks) {
+                // 일단 빈 파일로 생성만 해둠
+                fclose(fp_stocks);
             }
         }
+    
     } else {
         tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }
@@ -238,4 +238,47 @@ User *tui_login_flow(void) {
             return NULL;
         }
     }
+}
+
+/* data/stocks/(username).csv 에 저장된
+ * "종목명,보유량" 들을 user->holdings[] 로 불러온다
+ */
+static void user_stock_load_holdings(User *user) {
+    if (!user) return;
+
+    char path[256];
+    snprintf(path, sizeof(path), "data/stocks/%s.csv", user->name);
+
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return;  // 파일 없으면 보유량 없음
+    }
+
+    user->holding_count = 0;  // 초기화
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        // 공백/개행 제거
+        char *p = strtok(line, ", \t\r\n");
+        if (!p) continue;
+
+        char symbol[64];
+        snprintf(symbol, sizeof(symbol), "%s", p);
+
+        p = strtok(NULL, ", \t\r\n");
+        if (!p) continue;
+
+        int qty = atoi(p);
+        if (qty <= 0) continue;
+
+        if (user->holding_count >= MAX_HOLDINGS)
+            break;
+
+        StockHolding *h = &user->holdings[user->holding_count++];
+        memset(h, 0, sizeof(*h));
+        snprintf(h->symbol, sizeof(h->symbol), "%s", symbol);
+        h->qty = qty;
+    }
+
+    fclose(fp);
 }
