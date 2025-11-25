@@ -1008,7 +1008,7 @@ static void handle_class_seats_view(User *user) {
             strcpy(g_seats[cursor].name, user->name);
             save_seats_csv();
 
-            mvwprintw(win, height - 3, 2, "Seat %d reserved for %s     ", cursor, newname);
+            mvwprintw(win, height - 3, 2, "Seat %d reserved for %s     ", cursor, user->name);
             wrefresh(win);
             break;
         }
