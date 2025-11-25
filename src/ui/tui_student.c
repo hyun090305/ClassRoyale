@@ -29,6 +29,7 @@
 #include "../../include/domain/notification.h"
 #include "../../include/domain/account.h"
 #include "../../include/domain/message.h"
+#include "../../include/domain/qotd.h"
 
 
 #define ACCOUNT_STATS_MAX_TX 256
