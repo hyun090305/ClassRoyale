@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #define MAX_STOCKS 16
+#define STOCK_STEP_SECONDS 60
 
 static Stock g_stocks[MAX_STOCKS];
 static int   g_stock_count  = 0;
@@ -16,6 +17,7 @@ static int   g_seeded       = 0;
 
 static time_t g_start_time   = 0;
 static int    g_applied_hours = 0;
+static int    g_visible_len[MAX_STOCKS];
 /* -------------------------------------------------------------------------- */
 /*  static 함수 선언 (프로토타입)                                             */
 /* -------------------------------------------------------------------------- */
@@ -105,10 +107,6 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
         account_add_tx(user, revenue, "STOCK_SELL");
     }
 
-    /* 간단한 가격 변동 로직 */
-    stock->previous_price = stock->current_price;
-    stock->current_price += (is_buy ? 5 : -5);
-
     return 1;
 }
 
@@ -161,35 +159,71 @@ static void stock_load_from_csv(const char *path) {
 
     char line[512];
 
-    /* 1줄째: 시간일 수도 있고 아닐 수도 있음 */
+        /* 1줄째: 시간일 수도 있고 아닐 수도 있음 */
     if (!fgets(line, sizeof(line), fp)) {
         fclose(fp);
         return;
     }
 
-    /* 첫 줄이 숫자면 "기준 시각"으로 보고, 아니면 그냥 첫 종목으로 취급 */
-    char *endptr = NULL;
-    long long ts = strtoll(line, &endptr, 10);
-    int first_line_used_as_time = 0;
-
-    if (endptr != line && ts > 0) {
-        /* 숫자 파싱 성공 → 기준 시각으로 사용 */
-        g_start_time = (time_t)ts;
-        first_line_used_as_time = 1;
-    } else {
-        /* 숫자 아니면, 그냥 이 줄도 종목 데이터로 다시 파싱 */
-        g_start_time = time(NULL);  // 적당한 값으로
+    /* 줄 끝의 개행 제거 */
+    size_t len_line = strlen(line);
+    while (len_line > 0 && (line[len_line - 1] == '\n' || line[len_line - 1] == '\r')) {
+        line[--len_line] = '\0';
     }
+
+    /* 앞쪽 공백 스킵 */
+    char *p = line;
+    while (*p == ' ' || *p == '\t') {
+        ++p;
+    }
+
+    /* ---------- 1단계: YYYYMMDDHHMMSS (14자리) 포맷 시도 ---------- */
+    char digits[32] = {0};
+    if (sscanf(p, "%14[0-9]", digits) == 1 && strlen(digits) == 14) {
+        int year, mon, day, hour, min, sec;
+
+        char buf_year[5] = {0};
+        char buf_mon [3] = {0};
+        char buf_day [3] = {0};
+        char buf_hour[3] = {0};
+        char buf_min [3] = {0};
+        char buf_sec [3] = {0};
+
+        memcpy(buf_year, digits + 0, 4);  // YYYY
+        memcpy(buf_mon,  digits + 4, 2);  // MM
+        memcpy(buf_day,  digits + 6, 2);  // DD
+        memcpy(buf_hour, digits + 8, 2);  // HH
+        memcpy(buf_min,  digits +10, 2);  // MM
+        memcpy(buf_sec,  digits +12, 2);  // SS
+
+        year = atoi(buf_year);
+        mon  = atoi(buf_mon);
+        day  = atoi(buf_day);
+        hour = atoi(buf_hour);
+        min  = atoi(buf_min);
+        sec  = atoi(buf_sec);
+
+        struct tm t;
+        memset(&t, 0, sizeof(t));
+        t.tm_year = year - 1900;   // 1900 기준
+        t.tm_mon  = mon  - 1;      // 0~11
+        t.tm_mday = day;
+        t.tm_hour = hour;
+        t.tm_min  = min;
+        t.tm_sec  = sec;
+
+        time_t ts = mktime(&t);    // 로컬타임(KST) 기준
+        if (ts != (time_t)-1) {
+            g_start_time = ts;
+        }
+    }
+
 
     memset(g_stocks, 0, sizeof(g_stocks));
     g_stock_count = 0;
 
     /* 만약 첫 줄이 시간 아니었으면, line에 이미 종목 데이터가 들어있으니까
        그 줄부터 다시 처리 */
-    if (!first_line_used_as_time) {
-        /* line 변수 안에 있는 내용을 그대로 재사용 */
-        goto PARSE_LINE_AS_STOCK;
-    }
 
     while (fgets(line, sizeof(line), fp)) {
 PARSE_LINE_AS_STOCK:
@@ -221,22 +255,23 @@ PARSE_LINE_AS_STOCK:
             continue; // 가격 기록이 없으면 무시
         }
 
-        s->log_len       = idx;
-        s->base_price    = s->log[0];
-        s->current_price = s->log[idx - 1];
-        s->previous_price= (idx >= 2) ? s->log[idx - 2] : s->current_price;
+        s->log_len    = idx;          // 전체 CSV 길이
+        s->base_price = s->log[0];
+
+        /* 시간 0 기준: 첫 번째 값이 현재가 */
+        s->current_price  = s->log[0];
+        s->previous_price = s->log[0];
+
+        /* 이 종목은 지금 1개까지만 공개된 상태 */
+        g_visible_len[g_stock_count] = 1;
+
+
 
         snprintf(s->news, sizeof(s->news),
                  "Loaded %d points of history", s->log_len);
 
         g_stock_count++;
 
-        /* first_line_used_as_time == 0 인 경우는, 첫 줄 처리 후 플래그 변경하고
-           다음부터는 정상적인 while 루프로 들어감 */
-        if (!first_line_used_as_time) {
-            first_line_used_as_time = 1;
-            break;  // 첫 줄 처리 끝났으니 while 루프 다시 진입
-        }
     }
 
     fclose(fp);
@@ -259,25 +294,6 @@ static void ensure_seeded(void) {
     g_seeded = 1;
 }
 
-static void stock_append_price(Stock *s, int new_price) {
-    if (!s) return;
-
-    s->previous_price = s->current_price;
-    s->current_price  = new_price;
-
-    if (s->log_len < 200) {
-        s->log[s->log_len++] = new_price;
-    } else {
-        /* 꽉 찼으면 하나씩 밀어버리고 맨 뒤에 추가 */
-        for (int i = 1; i < 200; ++i) {
-            s->log[i - 1] = s->log[i];
-        }
-        s->log[199] = new_price;
-        s->log_len  = 200;
-    }
-}
-
-
 void stock_maybe_update_by_time(void) {
     ensure_seeded();
 
@@ -289,12 +305,11 @@ void stock_maybe_update_by_time(void) {
     double diff = difftime(now, g_start_time);
     if (diff < 0) diff = 0;
 
-    /* 총 몇 시간이 지났는지 */
-    int total_hours = (int)(diff / 3600.0);
+    /* 총 몇 시간이 지났는지 (1시간마다 한 칸씩) */
+    int total_hours = (int)(diff / STOCK_STEP_SECONDS);
 
-    /* 이미 적용한 시간(step)보다 크지 않으면 할 일 없음 */
     if (total_hours <= g_applied_hours) {
-        return;
+        return;  // 새로 진행된 시간이 없음
     }
 
     int new_steps = total_hours - g_applied_hours;
@@ -303,6 +318,26 @@ void stock_maybe_update_by_time(void) {
     }
 
     g_applied_hours = total_hours;
+
+    /* 새로 지난 시간만큼 한 칸씩 앞으로 진행 */
+    for (int step = 0; step < new_steps; ++step) {
+        for (int i = 0; i < g_stock_count; ++i) {
+            Stock *s = &g_stocks[i];
+
+            int visible = g_visible_len[i];
+            int total   = s->log_len;
+
+            /* 아직 더 보여줄 데이터가 있을 때만 한 칸 확장 */
+            if (visible < total) {
+                visible++;
+                g_visible_len[i] = visible;
+
+                s->previous_price = s->current_price;
+                s->current_price  = s->log[visible - 1];
+            }
+            /* visible == total 이면 더 이상 늘리지 않고 마지막 값 유지 */
+        }
+    }
 }
 
 static Stock *find_stock(const char *symbol) {
@@ -321,8 +356,22 @@ int stock_list(Stock *out_arr, int *out_n) {
     if (!out_arr || !out_n) return 0;
 
     for (int i = 0; i < g_stock_count; ++i) {
-        out_arr[i] = g_stocks[i];
+        Stock tmp = g_stocks[i];
+
+        int visible = g_visible_len[i];
+        if (visible <= 0) visible = 1;
+        if (visible > tmp.log_len) visible = tmp.log_len;
+
+        /* 이 시점에서 그래프/리스트가 보게 될 log 길이는 visible */
+        tmp.log_len       = visible;
+        tmp.current_price = tmp.log[visible - 1];
+        tmp.previous_price= (visible >= 2)
+                            ? tmp.log[visible - 2]
+                            : tmp.current_price;
+
+        out_arr[i] = tmp;
     }
+
     *out_n = g_stock_count;
     return 1;
 }
