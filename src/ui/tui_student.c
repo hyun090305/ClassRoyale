@@ -920,7 +920,7 @@ static void handle_class_seats_view(User *user) {
     int ch;
     while ((ch = wgetch(win)) != 'q') {}
 
-    delwin(win);ㅁ
+    delwin(win);
 
 }
 
