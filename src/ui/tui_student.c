@@ -39,6 +39,7 @@ static void handle_class_seats_view(User *user);
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
+static void handle_stock_graph_view(const Stock *stock);
 
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
@@ -448,9 +449,6 @@ static void handle_mission_board(User *user) {
     tui_common_destroy_box(win);
 }
 
-// 위쪽 어딘가에 (파일 상단) 이 두 함수의 프로토타입이 있어야 함:
-// static void handle_stocks_view(User *user);
-// static void handle_class_seats_view(User *user);
 
 static void handle_shop_view(User *user) {
     Shop shops[2];
@@ -1493,68 +1491,189 @@ static int get_owned_qty(User *user, const char *symbol) {
     return 0;
 }
 
-// 주식 화면: 리스트 + @ 그래프 + 매수/매도/배당
-static void handle_stocks_view(User *user) {
-    Stock stocks[16];
-    int count = 0;
-
-    // 전체 종목 리스트 가져오기
-    if (!stock_list(stocks, &count) || count == 0) {
-        tui_ncurses_toast("No stock data", 800);
+/* 선택한 한 종목의 log[] 전체를 그래프(@)로 보여주는 화면 */
+/* log 길이가 화면보다 길면 ← / → 로 스크롤 가능 */
+static void handle_stock_graph_view(const Stock *stock) {
+    if (!stock) {
+        return;
+    }
+    if (stock->log_len <= 0) {
+        tui_ncurses_toast("No history for this stock", 800);
         return;
     }
 
     int height = LINES - 4;
-    int width  = COLS - 6;
+    int width  = COLS  - 6;
+    if (height < 10) height = LINES;  // 너무 작으면 대충 커버
+    if (width  < 30) width  = COLS;
+
+    char title[80];
+    snprintf(title, sizeof(title), "Graph - %s (log size: %d)", stock->name, stock->log_len);
 
     WINDOW *win = tui_common_create_box(
         height,
         width,
         2,
         3,
-        "Stocks (Enter=Buy / s=Sell / d=Dividend / q=Close)"
+        title
     );
+    if (!win) return;
+
+    keypad(win, TRUE);
+
+    int offset  = 0;   // log[]에서 시작 인덱스
+    int running = 1;
+
+    while (running) {
+        werase(win);
+        box(win, 0, 0);
+
+        /* 상단 정보 */
+        mvwprintw(win, 0, 2, " %s Graph | points=%d ",
+                  stock->name, stock->log_len);
+
+        /* 그래프 그릴 영역 설정 */
+        int plot_top    = 2;
+        int plot_bottom = height - 3;        // 아래 한 줄은 안내용
+        int plot_left   = 2;
+        int plot_right  = width - 3;
+
+        int plot_height = plot_bottom - plot_top + 1;
+        int plot_width  = plot_right - plot_left + 1;
+
+        if (plot_height < 3) plot_height = 3;
+        if (plot_width  < 5) plot_width  = 5;
+
+        int len = stock->log_len;
+
+        /* offset 범위 정리 */
+        if (offset < 0) offset = 0;
+        if (offset > len - 1) offset = len - 1;
+        if (len <= plot_width) {
+            offset = 0;
+        } else {
+            if (offset + plot_width > len) {
+                offset = len - plot_width;
+            }
+        }
+
+        /* 현재 화면에 보여줄 구간의 min/max 찾기 */
+        int window_end = offset + plot_width;
+        if (window_end > len) window_end = len;
+
+        int minv = stock->log[offset];
+        int maxv = stock->log[offset];
+        for (int i = offset + 1; i < window_end; ++i) {
+            if (stock->log[i] < minv) minv = stock->log[i];
+            if (stock->log[i] > maxv) maxv = stock->log[i];
+        }
+        if (maxv == minv) {
+            /* 모두 같은 값이면, 수직 크기 1이라도 나오게 보정 */
+            maxv = minv + 1;
+        }
+
+        /* Y축 눈금 정보 (좌측에 min/max 표시) */
+        mvwprintw(win, plot_top,   1, "%d", maxv);
+        mvwprintw(win, plot_bottom,1, "%d", minv);
+
+        /* 실제 그래프 그리기: 각 x(열)마다 수직 바를 @로 찍는다 */
+        for (int x = 0; x < plot_width; ++x) {
+            int idx = offset + x;
+            if (idx >= len) break;
+
+            int v = stock->log[idx];
+
+            double ratio = (double)(v - minv) / (double)(maxv - minv);
+            if (ratio < 0.0) ratio = 0.0;
+            if (ratio > 1.0) ratio = 1.0;
+
+            int bar_h = (int)(ratio * (plot_height - 1)) + 1; // 최소 1칸은 찍히게
+            if (bar_h > plot_height) bar_h = plot_height;
+
+            int screen_x = plot_left + x;
+            for (int k = 0; k < bar_h; ++k) {
+                int y = plot_bottom - k;
+                if (y < plot_top) break;
+                mvwaddch(win, y, screen_x, '@');
+            }
+        }
+
+        /* 아래쪽 안내 & 현재 구간 표시 */
+        mvwprintw(win, height - 2, 2,
+                  "←/→ scroll  q back  range [%d - %d] / %d",
+                  offset,
+                  window_end - 1,
+                  len);
+
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        if (ch == KEY_LEFT) {
+            /* 왼쪽으로 plot_width/2 만큼 스크롤 */
+            int step = plot_width / 2;
+            if (step < 1) step = 1;
+            offset -= step;
+            if (offset < 0) offset = 0;
+        } else if (ch == KEY_RIGHT) {
+            int step = plot_width / 2;
+            if (step < 1) step = 1;
+            offset += step;
+            if (offset > len - 1) offset = len - 1;
+        } else if (ch == 'q' || ch == 27) {
+            running = 0;
+        }
+    }
+
+    tui_common_destroy_box(win);
+}
+
+static void handle_stocks_view(User *user) {
+    Stock stocks[16];
+    int count = 0;
+
+    /* 들어올 때 한 번 시간 업데이트 */
+    stock_maybe_update_by_time();
+    if (!stock_list(stocks, &count) || count == 0) {
+        tui_ncurses_toast("No stock data", 800);
+        return;
+    }
+
+    int height = LINES - 4;
+    int width  = COLS  - 6;
+
+    WINDOW *win = tui_common_create_box(
+        height,
+        width,
+        2,
+        3,
+        "Stocks (Enter=Buy / s=Sell / d=Dividend / g=Graph / q=Close)"
+    );
+    if (!win) return;
 
     keypad(win, TRUE);
     int highlight = 0;
     int running   = 1;
 
     while (running) {
+        /* 1시간 지났으면 내부에서 주가 변경 (CSV는 안 건드림) */
+        stock_maybe_update_by_time();
+        stock_list(stocks, &count);
+
         werase(win);
         box(win, 0, 0);
 
-        // 상단 타이틀 + 잔액
+        /* 상단 타이틀 + 잔액 표시 */
         mvwprintw(win, 0, 2,
                   " Stocks - Balance %dCr ",
                   user->bank.balance);
 
-        // 헤더
+        /* 헤더 */
         mvwprintw(win, 1, 2,
                   "%-3s %-8s %-7s %-5s %-6s %-4s %-20s",
                   "ID", "NAME", "PRICE", "OWN", "DIV", "Δ", "NEWS");
 
-        int visible_rows = height - 4; // 위 2줄 + 아래 안내 줄 빼고
+        int visible_rows = height - 4; // 위에 2줄 + 아래 안내 한 줄 빼고
 
-        // 그래프용 최대 가격 찾기
-        int max_price = 1;
-        for (int i = 0; i < count; ++i) {
-            if (stocks[i].current_price > max_price) {
-                max_price = stocks[i].current_price;
-            }
-        }
-
-        // 그래프 영역 설정 (오른쪽에 세로 @ 막대)
-        int graph_width  = count;              // 종목 개수만큼 기둥
-        if (graph_width > width - 10) {
-            graph_width = width - 10;         // 너무 넓어지지 않게 안전장치
-        }
-        int graph_x      = width - graph_width - 2; // 박스 오른쪽에서 약간 여유
-        int graph_bottom = height - 2;
-        int graph_top    = 3;
-        int graph_height = graph_bottom - graph_top + 1;
-        if (graph_height < 3) graph_height = 3;
-
-        // 텍스트 리스트 출력
         for (int i = 0; i < count && i < visible_rows; ++i) {
             int row    = 2 + i;
             int owned  = get_owned_qty(user, stocks[i].name);
@@ -1594,55 +1713,45 @@ static void handle_stocks_view(User *user) {
             }
         }
 
-        // @ 그래프 그리기 (아래에서 위로 쌓기)
-        for (int i = 0; i < count && i < graph_width; ++i) {
-            double ratio = (double)stocks[i].current_price / (double)max_price;
-            if (ratio < 0.1) ratio = 0.1;            // 최소 높이 보장
-            int bar_h = (int)(ratio * graph_height);
-            if (bar_h < 1) bar_h = 1;
-            if (bar_h > graph_height) bar_h = graph_height;
-
-            int x = graph_x + i;
-            for (int k = 0; k < bar_h; ++k) {
-                int y = graph_bottom - k;
-                if (y < graph_top) break;
-                mvwaddch(win, y, x, '@');
-            }
-        }
-
-        // 아래쪽 조작 안내
+        /* 아래쪽 조작 안내 (여기를 '버튼' 느낌으로 써도 됨) */
         mvwprintw(win, height - 2, 2,
-                  "↑↓ move  Enter buy  s sell  d dividend  q close");
+                  "↑↓ move  Enter buy  s sell  d dividend  g graph  q close");
 
         wrefresh(win);
 
         int ch = wgetch(win);
 
         if (ch == KEY_UP) {
-            highlight = (highlight - 1 + count) % count;
+            if (count > 0) {
+                highlight = (highlight - 1 + count) % count;
+            }
         } else if (ch == KEY_DOWN) {
-            highlight = (highlight + 1) % count;
+            if (count > 0) {
+                highlight = (highlight + 1) % count;
+            }
         } else if (ch == '\n' || ch == '\r') {
-            // 매수: 선택 종목 1주
+            /* 매수: 선택 종목 1주 */
+            if (count <= 0) continue;
             Stock *s = &stocks[highlight];
+
             if (stock_deal(user->name, s->name, 1, 1)) {
                 tui_ncurses_toast("Buy complete", 800);
-                // 가격/previous 갱신
-                stock_list(stocks, &count);
+                /* stock_maybe_update_by_time() + stock_list()에서 가격 갱신 */
             } else {
                 tui_ncurses_toast("Buy failed", 800);
             }
         } else if (ch == 's' || ch == 'S') {
-            // 매도: 선택 종목 1주
+            /* 매도: 선택 종목 1주 */
+            if (count <= 0) continue;
             Stock *s = &stocks[highlight];
+
             if (stock_deal(user->name, s->name, 1, 0)) {
                 tui_ncurses_toast("Sell complete", 800);
-                stock_list(stocks, &count);
             } else {
                 tui_ncurses_toast("Not enough shares", 800);
             }
         } else if (ch == 'd' || ch == 'D') {
-            // 배당: 이 유저가 가진 모든 주식에 배당 지급
+            /* 배당 */
             int earned = stock_pay_dividends(user);
             if (earned > 0) {
                 char msg[64];
@@ -1651,6 +1760,13 @@ static void handle_stocks_view(User *user) {
                 tui_ncurses_toast(msg, 800);
             } else {
                 tui_ncurses_toast("No dividends", 800);
+            }
+        } else if (ch == 'g' || ch == 'G') {
+            /* 🔹 현재 선택된 종목의 그래프 화면으로 진입 */
+            if (count > 0) {
+                Stock s = stocks[highlight];       // 복사해서 넘김(log 포함)
+                handle_stock_graph_view(&s);
+                /* 돌아오면 다시 while 루프 계속 → 리스트 화면 유지 */
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
