@@ -79,6 +79,7 @@ struct Stock {
     int current_price;
     int previous_price;
     char news[200];
+    int dividend_per_tick;
 };
 
 struct User {
