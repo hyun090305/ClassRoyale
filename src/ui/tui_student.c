@@ -1034,10 +1034,12 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
+                napms(3500);
                 wrefresh(win);
             } else {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d is already reserved!", cursor);
+                napms(3500);
                 wrefresh(win);
             }
 
