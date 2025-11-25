@@ -172,9 +172,17 @@ int mission_complete(const char *username, int mission_id) {
     }
     /* give reward to user's cash (not the balance) */
     user->bank.cash += user_mission->reward;
-    /* (optional) record a transaction/log entry — not touching balance so we avoid account_add_tx
-       which updates balance. If you have a cash-specific tx helper, call it here. */
-    /* persist completion to per-user missions CSV */
+     /* record a transaction for the cash reward so it appears in user's txs */
+     csv_ensure_dir("data");
+     csv_ensure_dir("data/txs");
+     char txpath[512];
+     snprintf(txpath, sizeof(txpath), "data/txs/%s.csv", username);
+     /* format: ts,reason,amount,balance -- balance unchanged here */
+     csv_append_row(txpath, "%ld,%s,%+d,%d", (long)time(NULL), "MISSION_REWARD", user_mission->reward, user->bank.balance);
+     /* persist accounts.csv so cash change is saved to disk (user_update_balance rewrites accounts.csv)
+         pass current balance to trigger rewrite; this will include the updated cash field. */
+     user_update_balance(username, user->bank.balance);
+     /* persist completion to per-user missions CSV */
     csv_ensure_dir("data/missions");
     char path[512];
     snprintf(path, sizeof(path), "data/missions/%s.csv", username);
