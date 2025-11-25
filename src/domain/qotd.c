@@ -7,7 +7,7 @@
 
 /* Simple QOTD CSV format (pipe-delimited):
  * date|user|question|status\n
- * Fields will have '|' and newlines replaced by spaces to keep format simple.
+ * Fields will have ',' and newlines replaced by spaces to keep format simple.
  */
 
 static void sanitize_field(const char *in, char *out, size_t out_sz) {
@@ -15,7 +15,7 @@ static void sanitize_field(const char *in, char *out, size_t out_sz) {
     size_t oi = 0;
     for (size_t i = 0; in[i] != '\0' && oi + 1 < out_sz; ++i) {
         char c = in[i];
-        if (c == '|' || c == '\n' || c == '\r') c = ' ';
+        if (c == ',' || c == '\n' || c == '\r') c = ' ';
         out[oi++] = c;
     }
     out[oi] = '\0';
@@ -42,7 +42,7 @@ int qotd_record_entry(const char *date, const char *user, const char *question, 
     sanitize_field(question ? question : "", squestion, sizeof(squestion));
     sanitize_field(status ? status : "", sstatus, sizeof(sstatus));
     /* use pipe delimiter */
-    return csv_append_row("data/qotd.csv", "%s|%s|%s|%s", sdate, suser, squestion, sstatus);
+    return csv_append_row("data/qotd.csv", "%s,%s,%s,%s", sdate, suser, squestion, sstatus);
 }
 
 int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out_count) {
@@ -61,8 +61,8 @@ int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out
         if (r == 0) continue;
         if (buf[r-1] == '\n') buf[r-1] = '\0';
         /* parse by pipe */
-        char *fld_date = strtok(buf, "|");
-        char *fld_user = strtok(NULL, "|");
+        char *fld_date = strtok(buf, ",");
+        char *fld_user = strtok(NULL, ",");
         if (!fld_date || !fld_user) continue;
         if (strcmp(fld_date, date) == 0) {
             int dup = 0;
