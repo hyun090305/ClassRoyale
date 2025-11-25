@@ -154,13 +154,20 @@ static void handle_qotd_view(User *user) {
         return;
     }
 
-    const char *question = "QOTD: How to save allowance?";
-    const char *opts[] = {
-        "1) Goals",
-        "2) Immediate spending",
-        "3) Random investment"
-    };
-    const int correct_choice = 1; /* 1-based index of correct option */
+    QOTD q = {0};
+    int has_q = qotd_get_today(&q);
+    const char *question = has_q ? q.question : "(no QOTD today)";
+    const char *opts[3];
+    if (has_q) {
+        opts[0] = q.opt1[0] ? q.opt1 : "(no option1)";
+        opts[1] = q.opt2[0] ? q.opt2 : "(no option2)";
+        opts[2] = q.opt3[0] ? q.opt3 : "(no option3)";
+    } else {
+        opts[0] = "-";
+        opts[1] = "-";
+        opts[2] = "-";
+    }
+    const int correct_choice = has_q ? q.right_index : 1; /* 1-based index of correct option */
     int reward = 20;
 
     int height = 10;
@@ -175,8 +182,8 @@ static void handle_qotd_view(User *user) {
         werase(win);
         box(win, 0, 0);
         mvwprintw(win, 1, 2, "%s", question);
-        for (int i = 0; i < (int)(sizeof(opts)/sizeof(opts[0])); ++i) {
-            mvwprintw(win, 3 + i, 4, "%s", opts[i]);
+        for (int i = 0; i < 3; ++i) {
+            mvwprintw(win, 3 + i, 4, "%d) %s", i + 1, opts[i]);
         }
         mvwprintw(win, height - 4, 2, "Current reward: %d Cr", reward);
         mvwprintw(win, height - 3, 2, "Enter option number to answer, q to quit");
@@ -190,8 +197,8 @@ static void handle_qotd_view(User *user) {
         if (ch >= '1' && ch <= '9') {
             int sel = ch - '0';
             if (sel == correct_choice) {
-                /* use account_add_tx to adjust balance and persist tx */
-                int ok = account_add_tx(user, reward, "QOTD");
+                /* grant cash directly and persist tx (award to on-hand cash) */
+                int ok = account_grant_cash(user, reward, "QOTD_REWARD");
                 if (ok) {
                     /* persist solved entry for today */
                     if (tmnow) {
@@ -240,9 +247,16 @@ static void render_mission_preview(WINDOW *win, const User *user) {
     }
         /* show QOTD hint only if the current user hasn't solved it yet */
     if (user && !qotd_is_solved(user->name)) {
-        mvwprintw(win, getmaxy(win) - 4, 2, "QOTD: How to save allowance?");
-        mvwprintw(win, getmaxy(win) - 3, 4, "1) Goals  2) Immediate spending  3) Random investment");
-        mvwprintw(win, getmaxy(win) - 2, 4, "[d] Respond on submission screen");
+        QOTD tq = {0};
+        if (qotd_get_today(&tq)) {
+            mvwprintw(win, getmaxy(win) - 4, 2, "QOTD: %s", tq.name);
+            mvwprintw(win, getmaxy(win) - 3, 4, "1) %s  2) %s  3) %s", tq.opt1[0] ? tq.opt1 : "-", tq.opt2[0] ? tq.opt2 : "-", tq.opt3[0] ? tq.opt3 : "-");
+            mvwprintw(win, getmaxy(win) - 2, 4, "[d] Respond on submission screen");
+        } else {
+            mvwprintw(win, getmaxy(win) - 4, 2, "QOTD: (none today)");
+            mvwprintw(win, getmaxy(win) - 3, 4, "");
+            mvwprintw(win, getmaxy(win) - 2, 4, "");
+        }
     }
 
     if (user->mission_count == 0 && qotd_is_solved(user->name)) {

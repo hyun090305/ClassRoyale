@@ -20,5 +20,7 @@ int account_deposit_from_cash(User *user, int amount, const char *reason); /* ca
 /* Loan operations: take loan (increase loan + increase cash), repay loan (decrease loan + decrease cash) */
 int account_take_loan(User *user, int amount, const char *reason);
 int account_repay_loan(User *user, int amount, const char *reason);
+/* Grant cash directly to user's on-hand cash (does not change deposit balance). */
+int account_grant_cash(User *user, int amount, const char *reason);
 
 #endif /* DOMAIN_ACCOUNT_H */

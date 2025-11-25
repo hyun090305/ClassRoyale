@@ -253,6 +253,32 @@ int account_repay_loan(User *user, int amount, const char *reason) {
     return 1;
 }
 
+int account_grant_cash(User *user, int amount, const char *reason) {
+    if (!user || amount <= 0) return 0;
+    long newcash = (long)user->bank.cash + amount;
+    if (newcash > INT_MAX) return 0;
+    user->bank.cash = (int)newcash;
+
+    /* append tx noting grant (balance unchanged) */
+    csv_ensure_dir("data");
+    csv_ensure_dir("data/txs");
+    char path[512];
+    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+
+    /* sanitize reason similar to account_add_tx */
+    char reason_safe[128] = "";
+    if (reason && reason[0]) {
+        snprintf(reason_safe, sizeof(reason_safe), "%s", reason);
+        for (size_t i = 0; i < sizeof(reason_safe); ++i) {
+            if (reason_safe[i] == ',' || reason_safe[i] == '\n' || reason_safe[i] == '\r') reason_safe[i] = ' ';
+            if (reason_safe[i] == '\0') break;
+        }
+    }
+
+    csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason_safe[0] ? reason_safe : "", amount, user->bank.balance);
+    return 1;
+}
+
 int account_add_tx_by_username(const char *username, int amount, const char *reason) {
     if (!username) return 0;
     User *u = user_lookup(username);
