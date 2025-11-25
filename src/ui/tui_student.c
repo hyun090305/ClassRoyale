@@ -915,6 +915,16 @@ static void load_seats_csv(void) {
     }
     fclose(fp);
 }
+void save_seats_csv(void) {
+    FILE *fp = fopen("seats.csv", "w");
+    if (!fp) return;
+
+    for (int i = 1; i <= 30; i++) {
+        fprintf(fp, "%d,%s\n", i, g_seats[i].name);
+    }
+
+    fclose(fp);
+}
 
 /* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
@@ -931,20 +941,27 @@ static void handle_class_seats_view(User *user) {
 
     keypad(win, TRUE);
 
+    int cursor = 1;  // 선택된 좌석 번호
     int running = 1;
+
     while (running) {
         werase(win);
         box(win, 0, 0);
 
-        mvwprintw(win, 1, 2, "Here you can manage class seats for %s", user->name);
+        mvwprintw(win, 1, 2, "Manage class seats for %s  (Use arrow keys, Enter = reserve)", user->name);
 
-        // === 좌석 출력 시작 ===
         int start_y = 3;
         int start_x = 2;
 
+        // ===== 좌석 출력 =====
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 5; col++) {
                 int seat_no = row * 5 + col + 1;
+
+                // 선택된 좌석 하이라이트
+                if (seat_no == cursor) {
+                    wattron(win, A_REVERSE);
+                }
 
                 char buf[128];
                 if (strlen(g_seats[seat_no].name) == 0)
@@ -952,17 +969,64 @@ static void handle_class_seats_view(User *user) {
                 else
                     snprintf(buf, sizeof(buf), "[%2d: %s]", seat_no, g_seats[seat_no].name);
 
-                // col * 18은 좌석 표시 간격 (길면 조절 가능)
                 mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
+
+                if (seat_no == cursor) {
+                    wattroff(win, A_REVERSE);
+                }
             }
         }
-        // === 좌석 출력 끝 ===
 
         wrefresh(win);
-
         int ch = wgetch(win);
-        if (ch == 'q' || ch == 27) {
+
+        // ===== 입력 처리 =====
+        switch (ch) {
+        case KEY_UP:
+            if (cursor > 5) cursor -= 5;
+            break;
+
+        case KEY_DOWN:
+            if (cursor <= 25) cursor += 5;
+            break;
+
+        case KEY_LEFT:
+            if (((cursor - 1) % 5) != 0) cursor--;
+            break;
+
+        case KEY_RIGHT:
+            if ((cursor % 5) != 0) cursor++;
+            break;
+
+        case '\n':   // 엔터 → 예약
+        case KEY_ENTER: {
+            if (strlen(g_seats[cursor].name) != 0) {
+                mvwprintw(win, height - 3, 2, "Seat %d is already reserved!", cursor);
+                wrefresh(win);
+                break;
+            }
+
+            // 이름 입력 창
+            echo();
+            char newname[64];
+            mvwprintw(win, height - 3, 2, "Enter name for seat %d: ", cursor);
+            wrefresh(win);
+            wgetnstr(win, newname, 63);
+            noecho();
+
+            // 저장
+            strcpy(g_seats[cursor].name, newname);
+            save_seats_csv();
+
+            mvwprintw(win, height - 3, 2, "Seat %d reserved for %s     ", cursor, newname);
+            wrefresh(win);
+            break;
+        }
+
+        case 'q':
+        case 27:
             running = 0;
+            break;
         }
     }
 
