@@ -30,6 +30,14 @@
 #include "../../include/domain/account.h"
 #include "../../include/domain/message.h"
 
+
+#define ACCOUNT_STATS_MAX_TX 256
+
+typedef struct {
+    long timestamp;
+    long total_asset;
+} AssetPoint;
+
 #include <stdbool.h>   // bool 쓸 거면 필요
 
 // 이 파일 안에서만 쓰고 싶다면 둘 다 static
@@ -39,6 +47,7 @@ static void handle_class_seats_view(User *user);
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
+static void handle_account_statistics(User *user);
 static void handle_stock_graph_view(const Stock *stock);
 
 static int user_has_mission(User *user, int mission_id) {
@@ -637,12 +646,204 @@ static void handle_shop_view(User *user) {
     tui_common_destroy_box(win);
 }
 
+static int account_reason_matches(const char *reason, const char *prefix) {
+    if (!reason || !prefix) return 0;
+    size_t need = strlen(prefix);
+    if (need == 0) return 0;
+    return strncmp(reason, prefix, need) == 0;
+}
+
+static int collect_asset_points(User *user, AssetPoint *points, int max_points) {
+    if (!user || !points || max_points <= 0) return 0;
+
+    char path[512];
+    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+
+    char *raw = NULL;
+    size_t raw_len = 0;
+    if (!csv_read_last_lines(path, ACCOUNT_STATS_MAX_TX, &raw, &raw_len) || !raw) {
+        if (raw) free(raw);
+        return 0;
+    }
+
+    typedef struct {
+        long ts;
+        int amount;
+        int balance;
+        char reason[64];
+    } AccountTxRow;
+
+    AccountTxRow rows[ACCOUNT_STATS_MAX_TX];
+    int row_count = 0;
+
+    char *cursor = raw;
+    while (cursor && *cursor && row_count < ACCOUNT_STATS_MAX_TX) {
+        char *line = cursor;
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = '\0';
+
+        if (*line) {
+            char *tokens[4] = {0};
+            int tokc = 0;
+            char *tok = strtok(line, ",");
+            while (tok && tokc < 4) {
+                tokens[tokc++] = tok;
+                tok = strtok(NULL, ",");
+            }
+            if (tokc >= 3) {
+                AccountTxRow row = {0};
+                row.ts = tokens[0] ? atol(tokens[0]) : 0;
+                if (tokc == 4) {
+                    snprintf(row.reason, sizeof(row.reason), "%s", tokens[1] ? tokens[1] : "");
+                    row.amount = tokens[2] ? atoi(tokens[2]) : 0;
+                    row.balance = tokens[3] ? atoi(tokens[3]) : 0;
+                } else {
+                    row.reason[0] = '\0';
+                    row.amount = tokens[1] ? atoi(tokens[1]) : 0;
+                    row.balance = tokens[2] ? atoi(tokens[2]) : 0;
+                }
+                rows[row_count++] = row;
+            }
+        }
+
+        if (!nl) break;
+        cursor = nl + 1;
+    }
+
+    free(raw);
+
+    if (row_count == 0) return 0;
+
+    long cash = user->bank.cash;
+    long loan = user->bank.loan;
+
+    AssetPoint reversed[ACCOUNT_STATS_MAX_TX];
+    int rev_count = 0;
+
+    for (int idx = row_count - 1; idx >= 0; --idx) {
+        AccountTxRow *row = &rows[idx];
+        long deposit = row->balance;
+        long total = deposit + cash - loan;
+        if (rev_count < ACCOUNT_STATS_MAX_TX) {
+            reversed[rev_count].timestamp = row->ts;
+            reversed[rev_count].total_asset = total;
+            rev_count++;
+        }
+
+        if (account_reason_matches(row->reason, "DEPOSIT_FROM_CASH")) {
+            cash += row->amount;
+        } else if (account_reason_matches(row->reason, "WITHDRAW_TO_CASH")) {
+            cash += row->amount;
+        } else if (account_reason_matches(row->reason, "LOAN_REPAY")) {
+            long delta = -(long)row->amount;
+            cash += delta;
+            loan += delta;
+        } else if (account_reason_matches(row->reason, "LOAN_TAKEN") ||
+                   account_reason_matches(row->reason, "LOAN")) {
+            cash -= row->amount;
+            loan -= row->amount;
+        }
+    }
+
+    if (rev_count == 0) return 0;
+
+    int copy = rev_count < max_points ? rev_count : max_points;
+    for (int i = 0; i < copy; ++i) {
+        points[i] = reversed[copy - 1 - i];
+    }
+    return copy;
+}
+
+static void handle_account_statistics(User *user) {
+    if (!user) return;
+
+    int height = LINES - 6;
+    if (height < 12) height = 12;
+    if (height > LINES - 2) height = LINES - 2;
+    int width = COLS - 8;
+    if (width < 48) width = 48;
+    if (width > COLS - 2) width = COLS - 2;
+
+    int starty = (LINES - height) / 2;
+    int startx = (COLS - width) / 2;
+
+    WINDOW *win = tui_common_create_box(height, width, starty, startx,
+                                        "Account Statistics (q to close)");
+    if (!win) return;
+    keypad(win, TRUE);
+
+    AssetPoint points[ACCOUNT_STATS_MAX_TX];
+    int point_count = collect_asset_points(user, points, ACCOUNT_STATS_MAX_TX);
+
+    if (point_count == 0) {
+        mvwprintw(win, 2, 2, "No transaction history to chart.");
+        mvwprintw(win, 3, 2, "Complete missions or trade to build stats.");
+    } else {
+        int usable_rows = height - 5;
+        if (usable_rows < 1) usable_rows = 1;
+        int start_idx = point_count > usable_rows ? point_count - usable_rows : 0;
+
+        long min_total = points[start_idx].total_asset;
+        long max_total = points[start_idx].total_asset;
+        for (int i = start_idx; i < point_count; ++i) {
+            if (points[i].total_asset < min_total) min_total = points[i].total_asset;
+            if (points[i].total_asset > max_total) max_total = points[i].total_asset;
+        }
+        long range = max_total - min_total;
+        if (range <= 0) range = 1;
+
+        int label_width = 14;
+        int bar_col = 2 + label_width + 1;
+        int bar_width = width - bar_col - 12;
+        if (bar_width < 10) bar_width = 10;
+
+        int row = 2;
+        for (int i = start_idx; i < point_count && row < height - 3; ++i, ++row) {
+            char timebuf[32];
+            if (points[i].timestamp > 0) {
+                time_t tt = (time_t)points[i].timestamp;
+                struct tm *tm = localtime(&tt);
+                if (tm) {
+                    strftime(timebuf, sizeof(timebuf), "%m-%d %H:%M", tm);
+                } else {
+                    snprintf(timebuf, sizeof(timebuf), "%ld", points[i].timestamp);
+                }
+            } else {
+                snprintf(timebuf, sizeof(timebuf), "entry %d", i + 1);
+            }
+            mvwprintw(win, row, 2, "%-*s", label_width, timebuf);
+
+            mvwhline(win, row, bar_col, ' ', bar_width);
+            long long scaled = (long long)(points[i].total_asset - min_total) * bar_width;
+            int filled = (int)(scaled / range);
+            if (filled < 0) filled = 0;
+            if (filled > bar_width) filled = bar_width;
+            if (filled > 0) {
+                mvwhline(win, row, bar_col, '#', filled);
+            }
+            mvwprintw(win, row, bar_col + bar_width + 1, "%ld", points[i].total_asset);
+        }
+
+        mvwprintw(win, height - 4, 2, "Newest total: %ld Cr | Peak: %ld Cr | Lowest: %ld Cr",
+                  points[point_count - 1].total_asset, max_total, min_total);
+    }
+
+    mvwprintw(win, height - 2, 2, "Total = deposit + cash - loan. Press q / ESC to close.");
+    wrefresh(win);
+
+    int ch;
+    while ((ch = wgetch(win)) != 'q' && ch != 'Q' && ch != 27) {
+        /* wait */
+    }
+    tui_common_destroy_box(win);
+}
+
 
 static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
+                                        "Account Management (d deposit / b borrow / r repay / w withdraw / t stats / q close)");
     int running = 1;
     while (running) {
         werase(win);
@@ -652,7 +853,7 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
+        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  t)stats  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -695,6 +896,8 @@ static void handle_account_view(User *user) {
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);
             }
+        } else if (ch == 't' || ch == 'T') {
+            handle_account_statistics(user);
         } else if (ch == 'q' || ch == 27) {
             running = 0;
         }
