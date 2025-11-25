@@ -82,7 +82,6 @@ struct Stock {
     int log[200];
     int log_len;
     char news[200];
-    int dividend_per_tick;
 };
 
 struct User {
