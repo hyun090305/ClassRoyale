@@ -2,6 +2,16 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <time.h>
+#include <ctype.h>
+#ifdef _WIN32
+#include <process.h> /* _getpid */
+#define GETPID() _getpid()
+#else
+#include <unistd.h>  /* getpid */
+#define GETPID() getpid()
+#endif
 
 #include "../../include/domain/account.h"
 #include "../../include/domain/admin.h"
@@ -24,6 +34,10 @@
 
 // 이 파일 안에서만 쓰고 싶다면 둘 다 static
 static void handle_class_seats_view(User *user);
+
+/* forward declarations for mission play screens - MUST be before handle_mission_board */
+static void handle_mission_play_typing(User *user, Mission *m);
+static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
 
 static int user_has_mission(User *user, int mission_id) {
@@ -399,53 +413,20 @@ static void handle_mission_board(User *user) {
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
             int mid = user->missions[highlight].id;
-            if (mission_complete(user->name, mid)) {
-                tui_ncurses_toast("Mission complete! Reward granted", 900);
-                user_update_balance(user->name, user->bank.balance);
-
-                /* reload user's missions so completed flag and counts update immediately */
-                mission_load_user(user->name, user);
-
-                /* adjust available/highlight after reload */
-                available = user->mission_count;
-                if (available == 0) {
-                    highlight = 0;
-                } else if (highlight >= available) {
-                    highlight = available - 1;
-                }
-
-                /* reload user's missions so completed flag and counts update immediately */
-                mission_load_user(user->name, user);
-
-                /* adjust available/highlight after reload */
-                available = user->mission_count;
-                if (available == 0) {
-                    highlight = 0;
-                } else if (highlight >= available) {
-                    highlight = available - 1;
-                }
+            Mission selected = user->missions[highlight];
+            if (selected.completed) {
+                tui_ncurses_toast("Mission already completed", 800);
             } else {
-                /* Diagnose likely reason and show clearer message */
-                int found = 0;
-                int already = 0;
-                for (int ii = 0; ii < user->mission_count; ++ii) {
-                    if (user->missions[ii].id == mid) {
-                        found = 1;
-                        if (user->missions[ii].completed) already = 1;
-                        break;
-                    }
+                if (selected.type == 0) {
+                    handle_mission_play_typing(user, &selected);
+                } else if (selected.type == 1) {
+                    handle_mission_play_math(user, &selected);
                 }
-                if (!found) {
-                    char msg[128];
-                    snprintf(msg, sizeof(msg), "Failed: mission #%d not assigned", mid);
-                    tui_ncurses_toast(msg, 1200);
-                } else if (already) {
-                    char msg[128];
-                    snprintf(msg, sizeof(msg), "Already completed: mission #%d", mid);
-                    tui_ncurses_toast(msg, 1200);
-                } else {
-                    tui_ncurses_toast("Failed to complete mission (internal)", 1200);
-                }
+                /* after returning, reload user missions so UI updates */
+                mission_load_user(user->name, user);
+                available = user->mission_count;
+                if (available == 0) highlight = 0;
+                else if (highlight >= available) highlight = available - 1;
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
@@ -904,10 +885,11 @@ void tui_student_loop(User *user) {
     }
 }
 
+/* forward declarations for mission play screens */
+static void handle_mission_play_typing(User *user, Mission *m);
+static void handle_mission_play_math(User *user, Mission *m);
 
-
-
-
+/* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
     int height = LINES - 6;
     int width  = COLS - 10;
@@ -940,6 +922,413 @@ static void handle_class_seats_view(User *user) {
 
     tui_common_destroy_box(win);
 }
+
+/* --- Mission play screens (typing practice / math quiz) --- */
+
+static void append_typing_leaderboard(const char *username, int mission_id, double wpm, double accuracy) {
+    csv_ensure_dir("data");
+    FILE *fp = fopen("data/typing_leaderboard.csv", "a");
+    if (!fp) return;
+    /* format: username,mission_id,wpm,accuracy_percent */
+    fprintf(fp, "%s,%d,%.2f,%.2f\n", username ? username : "unknown", mission_id, wpm, accuracy);
+    fclose(fp);
+}
+
+static void append_math_leaderboard(const char *username, int mission_id, double total_seconds) {
+    csv_ensure_dir("data");
+    FILE *fp = fopen("data/math_leaderboard.csv", "a");
+    if (!fp) return;
+    fprintf(fp, "%s,%d,%.3f\n", username ? username : "unknown", mission_id, total_seconds);
+    fclose(fp);
+}
+
+/* comparator for math leaderboard sort (ascending time) */
+static int cmp_math_time(const void *a, const void *b) {
+    const double ta = ((const struct { char name[128]; double time; } *)a)->time;
+    const double tb = ((const struct { char name[128]; double time; } *)b)->time;
+    if (ta < tb) return -1;
+    if (ta > tb) return 1;
+    return 0;
+}
+
+/* typing leaderboard entry type and comparator (WPM desc) */
+typedef struct { char name[128]; double wpm; double acc; } typing_lbent;
+static int cmp_typing_wpm_desc(const void *a, const void *b) {
+    const typing_lbent *A = (const typing_lbent *)a;
+    const typing_lbent *B = (const typing_lbent *)b;
+    if (A->wpm < B->wpm) return 1;
+    if (A->wpm > B->wpm) return -1;
+    return 0;
+}
+
+/* Typing practice:
+   - Two text lines shown (static per spec).
+   - User types on the line below each text.
+   - Incorrect characters are drawn with standout / red if available.
+   - Backspace supported, Enter moves to next input line.
+   - After finishing, compute elapsed, accuracy, WPM and write leaderboard.
+   - Press Enter on summary to mark mission complete and exit.
+*/
+static void handle_mission_play_typing(User *user, Mission *m) {
+    if (!user || !m) return;
+
+    const char *texts[4] = {
+        "The quick brown fox jumps over the lazy dog.",
+        "A bird in the hand is worth two in the bush.",
+        "Don't count your chickens before they hatch.",
+        "The grass is always greener on the other side."
+    };
+    const int lines = 4;
+
+    int height = LINES - 6;
+    int width = COLS - 10;
+    int starty = 3;
+    int startx = 5;
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Typing Practice - Single Screen (type on input lines; Enter -> next)");
+    keypad(win, TRUE);
+
+    bool use_colors = has_colors();
+    if (use_colors) {
+        start_color();
+        /* red for wrong, yellow for correct on black background */
+        init_pair(10, COLOR_RED, COLOR_BLACK);
+        init_pair(11, COLOR_YELLOW, COLOR_BLACK);
+    }
+
+    char inputs[4][256];
+    int pos[4] = {0,0,0,0};
+    memset(inputs, 0, sizeof(inputs));
+
+    int total_typed = 0;
+    int total_correct = 0;
+    time_t tstart = 0, tend = 0;
+    int cur = 0;
+
+    while (1) {
+        werase(win);
+        box(win, 0, 0);
+        mvwprintw(win, 1, 2, "Typing Practice - line %d of %d", cur+1, lines);
+        mvwprintw(win, height - 3, 2, "Backspace allowed. Enter -> next line. Esc -> cancel.");
+
+        /* draw each text, then an empty row, then input row, then an empty row */
+        for (int i = 0; i < lines; ++i) {
+            int text_row = 3 + i * 4;      /* text */
+            int inrow = text_row + 2;     /* input (one blank line between) */
+            mvwprintw(win, text_row, 4, "%s", texts[i]);
+
+            int tlen = (int)strlen(texts[i]);
+            /* draw typed characters and highlight incorrect ones */
+            for (int j = 0; j < pos[i]; ++j) {
+                char ch = inputs[i][j];
+                char expected = (j < tlen) ? texts[i][j] : '\0';
+                if (ch == expected) {
+                    if (use_colors) {
+                        wattron(win, COLOR_PAIR(11) | A_BOLD); /* yellow for correct */
+                        mvwaddch(win, inrow, 4 + j, ch);
+                        wattroff(win, COLOR_PAIR(11) | A_BOLD);
+                    } else {
+                        mvwaddch(win, inrow, 4 + j, ch);
+                    }
+                } else {
+                    if (use_colors) {
+                        wattron(win, COLOR_PAIR(10) | A_BOLD); /* red for wrong */
+                        mvwaddch(win, inrow, 4 + j, ch);
+                        wattroff(win, COLOR_PAIR(10) | A_BOLD);
+                    } else {
+                        wattron(win, A_REVERSE);
+                        mvwaddch(win, inrow, 4 + j, ch);
+                        wattroff(win, A_REVERSE);
+                    }
+                }
+            }
+            /* clear remainder of input area up to target length */
+            for (int k = pos[i]; k < tlen; ++k) {
+                mvwaddch(win, inrow, 4 + k, ' ');
+            }
+
+            /* place cursor on current input line */
+            if (i == cur) {
+                wmove(win, inrow, 4 + pos[i]);
+            }
+        }
+
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        if (!tstart && ch != ERR && ch != '\n' && ch != '\r') {
+            tstart = time(NULL);
+        }
+
+        if (ch == '\n' || ch == '\r') {
+            /* finish current line and move to next */
+            cur++;
+            if (cur >= lines) {
+                /* finished all lines -> compute summary, mark complete and exit */
+                tend = time(NULL);
+                double elapsed = difftime(tend, tstart);
+                if (elapsed <= 0.0) elapsed = 1.0;
+
+                for (int i = 0; i < lines; ++i) {
+                    int typed = pos[i];
+                    total_typed += typed;
+                    int tlen = (int)strlen(texts[i]);
+                    for (int j = 0; j < typed; ++j) {
+                        if (j < tlen && inputs[i][j] == texts[i][j]) total_correct++;
+                    }
+                }
+
+                double accuracy = total_typed > 0 ? (100.0 * (double)total_correct / (double)total_typed) : 0.0;
+                double wpm = (double)total_correct / 5.0 / (elapsed / 60.0);
+
+                /* append leaderboard with accuracy */
+                append_typing_leaderboard(user->name, m->id, wpm, accuracy);
+
+                if (mission_complete(user->name, m->id)) {
+                    user_update_balance(user->name, user->bank.balance);
+                    tui_ncurses_toast("Mission complete! Reward granted", 900);
+                    mission_load_user(user->name, user);
+                } else {
+                    tui_ncurses_toast("Failed to mark mission complete", 900);
+                }
+
+                /* show final summary and wait for Enter (or q/Esc) to return */
+                werase(win);
+                box(win, 0, 0);
+                mvwprintw(win, 2, 4, "Typing Practice Complete!");
+                mvwprintw(win, 4, 4, "Time: %.2f sec", elapsed);
+                mvwprintw(win, 5, 4, "Accuracy: %.2f%% (%d/%d)", accuracy, total_correct, total_typed);
+                mvwprintw(win, 6, 4, "WPM: %.2f", wpm);
+
+                mvwprintw(win, 8, 4, "Leaderboard (100%% accuracy only, sorted by WPM):");
+
+                /* read leaderboard, filter 100% accuracy and sort by WPM desc */
+                typing_lbent entries[256];
+                int n = 0;
+                FILE *fp = fopen("data/typing_leaderboard.csv", "r");
+                if (fp) {
+                    char linebuf[256];
+                    while (fgets(linebuf, sizeof(linebuf), fp) && n < (int)(sizeof(entries)/sizeof(entries[0]))) {
+                        char uname[128]; int mid = 0; double w = 0, a = 0;
+                        if (sscanf(linebuf, "%127[^,],%d,%lf,%lf", uname, &mid, &w, &a) == 4) {
+                            if (mid == m->id && a >= 99.999) { /* treat >=100 as 100% */
+                                strncpy(entries[n].name, uname, sizeof(entries[n].name)-1);
+                                entries[n].name[sizeof(entries[n].name)-1] = '\0';
+                                entries[n].wpm = w;
+                                entries[n].acc = a;
+                                n++;
+                            }
+                        }
+                    }
+                    fclose(fp);
+                }
+                /* sort by wpm desc */
+                if (n > 1) {
+                    qsort(entries, n, sizeof(entries[0]), cmp_typing_wpm_desc);
+                }
+
+                int row = 10;
+                int shown = 0;
+                for (int i = 0; i < n && row < height - 3 && shown < 5; ++i) {
+                    mvwprintw(win, row++, 6, "%s : %.2f WPM", entries[i].name, entries[i].wpm);
+                    shown++;
+                }
+                if (shown == 0) {
+                    mvwprintw(win, 10, 6, "(no 100%% accuracy entries yet)");
+                }
+
+                mvwprintw(win, height - 3, 2, "Finished. Press Enter to return (Esc/q also exits).");
+                wrefresh(win);
+                /* wait for Enter / Esc / q */
+                int k;
+                while ((k = wgetch(win)) != '\n' && k != '\r' && k != 27 && k != 'q' && k != 'Q') {
+                    /* looping until expected key */
+                }
+
+                tui_common_destroy_box(win);
+                return;
+            }
+            continue;
+        } else if (ch == 27) { /* Esc to cancel */
+            tui_common_destroy_box(win);
+            return;
+        } else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+            if (pos[cur] > 0) {
+                pos[cur]--;
+                inputs[cur][pos[cur]] = '\0';
+            }
+        } else if (isprint(ch)) {
+            int tlen = (int)strlen(texts[cur]);
+            if (pos[cur] < tlen && pos[cur] < (int)sizeof(inputs[cur]) - 1) {
+                inputs[cur][pos[cur]++] = (char)ch;
+                inputs[cur][pos[cur]] = '\0';
+            }
+        }
+    }
+
+    tui_common_destroy_box(win);
+}
+
+/* Math quiz:
+   - Generate problems up to 7 correct answers.
+   - Problem types: +, -, * with constraints:
+     + and -: operands up to 3 digits (0..999)
+     *: operands up to 2 digits (0..99)
+   - Show one problem at a time. User inputs answer and presses Enter.
+   - On correct, move to next. After 7 correct, compute total time, append leaderboard.
+   - On summary Enter, mark mission complete and exit.
+*/
+static int make_random_int(int max_plus_one) {
+    return rand() % max_plus_one;
+}
+
+static void handle_mission_play_math(User *user, Mission *m) {
+    if (!user || !m) return;
+    srand((unsigned int)time(NULL) ^ (unsigned int)GETPID());
+
+    int required = 7;
+    int solved = 0;
+    time_t tstart = 0, tend = 0;
+
+    int height = LINES - 6;
+    int width = COLS - 10;
+    int starty = 3;
+    int startx = 5;
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Math Quiz (Enter answer; q to quit)");
+    keypad(win, TRUE);
+
+    while (solved < required) {
+        /* generate a random problem */
+        int typ = rand() % 3; /* 0:+ 1:- 2:* */
+        int a, b;
+        long correct = 0;
+        if (typ == 0) { /* + up to 3 digits */
+            a = make_random_int(1000);
+            b = make_random_int(1000);
+            correct = (long)a + b;
+        } else if (typ == 1) { /* - up to 3 digits */
+            a = make_random_int(1000);
+            b = make_random_int(1000);
+            correct = (long)a - b;
+        } else { /* * up to 2 digits */
+            a = make_random_int(100);
+            b = make_random_int(100);
+            correct = (long)a * b;
+        }
+
+        char prompt[128];
+        snprintf(prompt, sizeof(prompt), "%d %c %d = ", a, (typ == 0 ? '+' : typ == 1 ? '-' : '*'), b);
+
+        char ibuf[64];
+        memset(ibuf, 0, sizeof(ibuf));
+        int ipos = 0;
+        int started = 0;
+
+        while (1) {
+            werase(win);
+            box(win, 0, 0);
+            mvwprintw(win, 2, 4, "Math Quiz: %d / %d", solved, required);
+            mvwprintw(win, 4, 4, "%s", prompt);
+            mvwprintw(win, 4, 4 + (int)strlen(prompt), "%s", ibuf);
+            mvwprintw(win, height - 3, 2, "Enter numeric answer and press Enter. q to cancel.");
+            wrefresh(win);
+
+            int ch = wgetch(win);
+            if (!started && ch != ERR) {
+                tstart = tstart ? tstart : time(NULL);
+                started = 1;
+            }
+            if (ch == '\n' || ch == '\r') {
+                /* parse answer */
+                long ans = strtol(ibuf, NULL, 10);
+                if (ans == correct) {
+                    solved++;
+                    break;
+                } else {
+                    /* feedback and allow retry for same problem */
+                    mvwprintw(win, height - 4, 4, "Incorrect, try again.");
+                    wrefresh(win);
+                    napms(800);
+                    ipos = 0;
+                    ibuf[0] = '\0';
+                    continue;
+                }
+            } else if (ch == 'q' || ch == 27) {
+                tui_common_destroy_box(win);
+                return;
+            } else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+                if (ipos > 0) ipos--;
+                ibuf[ipos] = '\0';
+            } else if ((ch == '-' && ipos == 0) || isdigit(ch)) {
+                if (ipos < (int)sizeof(ibuf) - 1) {
+                    ibuf[ipos++] = (char)ch;
+                    ibuf[ipos] = '\0';
+                }
+            }
+        }
+    }
+
+    tend = time(NULL);
+    double total_seconds = difftime(tend, tstart);
+    if (total_seconds < 0.001) total_seconds = 1.0;
+
+    /* show summary and leaderboard */
+    werase(win);
+    box(win, 0, 0);
+    mvwprintw(win, 2, 4, "Math Quiz Complete!");
+    mvwprintw(win, 4, 4, "Total time: %.2f sec for %d problems", total_seconds, required);
+    append_math_leaderboard(user->name, m->id, total_seconds);
+
+    /* print recent entries for this mission */
+    typedef struct { char name[128]; double time; } mentry;
+    mentry entries[256];
+    int nents = 0;
+    FILE *fp = fopen("data/math_leaderboard.csv", "r");
+    if (fp) {
+        char line[256];
+        while (fgets(line, sizeof(line), fp) && nents < (int)(sizeof(entries)/sizeof(entries[0]))) {
+            char uname[128]; int mid = 0; double t = 0;
+            if (sscanf(line, "%127[^,],%d,%lf", uname, &mid, &t) == 3) {
+                if (mid == m->id) {
+                    strncpy(entries[nents].name, uname, sizeof(entries[nents].name)-1);
+                    entries[nents].name[sizeof(entries[nents].name)-1] = '\0';
+                    entries[nents].time = t;
+                    nents++;
+                }
+            }
+        }
+        fclose(fp);
+    }
+    /* sort ascending by time and display top (fastest) entries */
+    if (nents > 1) {
+        qsort(entries, nents, sizeof(entries[0]), cmp_math_time);
+    }
+    int row = 6;
+    int shown = 0;
+    for (int i = 0; i < nents && row < height - 2 && shown < 5; ++i) {
+        mvwprintw(win, row++, 6, "%s : %.3f s", entries[i].name, entries[i].time);
+        shown++;
+    }
+    if (shown == 0) {
+        mvwprintw(win, 6, 6, "(no entries yet)");
+    }
+
+    mvwprintw(win, height - 3, 2, "Press Enter to complete mission and exit.");
+    wrefresh(win);
+    wgetch(win);
+
+    if (mission_complete(user->name, m->id)) {
+        user_update_balance(user->name, user->bank.balance);
+        tui_ncurses_toast("Mission complete! Reward granted", 900);
+        mission_load_user(user->name, user);
+    } else {
+        tui_ncurses_toast("Failed to mark mission complete", 900);
+    }
+
+    tui_common_destroy_box(win);
+}
+
+/* integrate into mission board: when user presses Enter on a mission that is not completed,
+   launch the correct play screen based on m->type */
 
 
 static int get_owned_qty(User *user, const char *symbol) {
