@@ -1228,6 +1228,7 @@ static void handle_class_seats_view(User *user) {
                 mvwprintw(win, height - 3, 2,
                     "You already reserved seat %d. Cancel it first.", mySeat);
                 wrefresh(win);
+                napms(500);
                 break;
             }
 
@@ -1237,6 +1238,8 @@ static void handle_class_seats_view(User *user) {
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
+                user->bank.cash += 10000;
+                user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
                 break;
             }
@@ -1248,12 +1251,14 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                napms(3500);
+                user->bank.cash -= 10000;
+                user_update_balance(user->name, user->bank.balance);
+                napms(500);
                 wrefresh(win);
             } else {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d is already reserved!", cursor);
-                napms(3500);
+                napms(500);
                 wrefresh(win);
             }
 
