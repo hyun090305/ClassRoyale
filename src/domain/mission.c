@@ -170,12 +170,10 @@ int mission_complete(const char *username, int mission_id) {
     if (user->total_missions < user->completed_missions) {
         user->total_missions = user->completed_missions;
     }
-    /* adjust balance and persist transaction with reason including mission id */
-    {
-        char reason[64];
-        snprintf(reason, sizeof(reason), "MISSION_COMPLETE:%d", mission_id);
-        account_add_tx(user, user_mission->reward, reason);
-    }
+    /* give reward to user's cash (not the balance) */
+    user->bank.cash += user_mission->reward;
+    /* (optional) record a transaction/log entry — not touching balance so we avoid account_add_tx
+       which updates balance. If you have a cash-specific tx helper, call it here. */
     /* persist completion to per-user missions CSV */
     csv_ensure_dir("data/missions");
     char path[512];
