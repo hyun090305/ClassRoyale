@@ -1118,7 +1118,7 @@ typedef struct {
 static Seat g_seats[31]; // 1~30까지 사용
 
 static void load_seats_csv(void) {
-    FILE *fp = fopen("seats.csv", "r");
+    FILE *fp = fopen("data/seats.csv", "r");
     if (!fp) return;
 
     int num;
@@ -1130,7 +1130,7 @@ static void load_seats_csv(void) {
     fclose(fp);
 }
 void save_seats_csv(void) {
-    FILE *fp = fopen("seats.csv", "w");
+    FILE *fp = fopen("data/seats.csv", "w");
     if (!fp) return;
 
     for (int i = 1; i <= 30; i++) {
