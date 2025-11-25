@@ -960,7 +960,9 @@ static void handle_class_seats_view(User *user) {
         werase(win);
         box(win, 0, 0);
 
-        mvwprintw(win, 1, 2, "Manage class seats for %s  (Use arrow keys, Enter = reserve)", user->name);
+        mvwprintw(win, 1, 2,
+            "Manage class seats for %s  (Arrow keys, Enter=reserve/cancel)",
+            user->name);
 
         int start_y = 3;
         int start_x = 2;
@@ -970,10 +972,8 @@ static void handle_class_seats_view(User *user) {
             for (int col = 0; col < 5; col++) {
                 int seat_no = row * 5 + col + 1;
 
-                // 선택된 좌석 하이라이트
-                if (seat_no == cursor) {
+                if (seat_no == cursor)
                     wattron(win, A_REVERSE);
-                }
 
                 char buf[128];
                 if (strlen(g_seats[seat_no].name) == 0)
@@ -983,9 +983,8 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
 
-                if (seat_no == cursor) {
+                if (seat_no == cursor)
                     wattroff(win, A_REVERSE);
-                }
             }
         }
 
@@ -1010,18 +1009,52 @@ static void handle_class_seats_view(User *user) {
             if ((cursor % 5) != 0) cursor++;
             break;
 
-        case '\n':   // 엔터 → 예약
+        case '\n':
         case KEY_ENTER: {
-            if (strlen(g_seats[cursor].name) != 0) {
-                mvwprintw(win, height - 3, 2, "Seat %d is already reserved!", cursor);
+
+            // ===== 먼저 본인이 이미 다른 좌석을 예약했는지 검사 =====
+            int mySeat = -1;
+            for (int i = 1; i <= 30; i++) {
+                if (strcmp(g_seats[i].name, user->name) == 0) {
+                    mySeat = i;
+                    break;
+                }
+            }
+
+            // == 1) 본인이 이미 좌석을 가지고 있다면 ==
+            if (mySeat != -1 && mySeat != cursor) {
+                mvwprintw(win, height - 3, 2,
+                    "You already reserved seat %d. Cancel it first.", mySeat);
                 wrefresh(win);
                 break;
             }
-            strcpy(g_seats[cursor].name, user->name);
-            save_seats_csv();
 
-            mvwprintw(win, height - 3, 2, "Seat %d reserved for %s     ", cursor, user->name);
-            wrefresh(win);
+            // == 2) 본인이 자기 좌석을 선택한 경우 → 해제 ==
+            if (mySeat == cursor) {
+                g_seats[cursor].name[0] = '\0';
+                save_seats_csv();
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d cancelled.", cursor);
+                wrefresh(win);
+                break;
+            }
+
+            // == 3) 빈 좌석이면 예약 ==
+            if (strlen(g_seats[cursor].name) == 0) {
+                strcpy(g_seats[cursor].name, user->name);
+                save_seats_csv();
+
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d reserved for %s   ", cursor, user->name);
+                napms(3500);
+                wrefresh(win);
+            } else {
+                mvwprintw(win, height - 3, 2,
+                    "Seat %d is already reserved!", cursor);
+                napms(3500);
+                wrefresh(win);
+            }
+
             break;
         }
 
@@ -1034,6 +1067,7 @@ static void handle_class_seats_view(User *user) {
 
     tui_common_destroy_box(win);
 }
+
 
 
 /* --- Mission play screens (typing practice / math quiz) --- */
