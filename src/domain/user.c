@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "../../include/domain/mission.h"
 #include "../../include/core/csv.h"
@@ -120,8 +121,8 @@ static void seed_defaults(void) {
         if (line1[0] == '\0') {
             continue;
         }
-        // flexible CSV parsing: name,balance,rating[,cash[,loan[,log]]]
-        char *tokens[6] = {0};
+        // flexible CSV parsing: name,balance,rating[,cash[,loan[,last_interest_ts[,log]]]]
+        char *tokens[8] = {0};
         int tc = 0;
         char *p = strtok(line1, ",");
         while (p && tc < (int)(sizeof(tokens)/sizeof(tokens[0]))) {
@@ -134,7 +135,8 @@ static void seed_defaults(void) {
         char *rating = tokens[2];
         char *cash_tok = tc > 3 ? tokens[3] : NULL;
         char *loan_tok = tc > 4 ? tokens[4] : NULL;
-        char *log = tc > 5 ? tokens[5] : NULL;
+        char *last_interest_tok = tc > 5 ? tokens[5] : NULL;
+        char *log = tc > 6 ? tokens[6] : NULL;
 
         if (!name || !balance || !rating) {
             continue;
@@ -148,6 +150,27 @@ static void seed_defaults(void) {
                 g_users[i].bank.rating  = atoi(rating);
                 g_users[i].bank.cash = cash_tok ? atoi(cash_tok) : 0;
                 g_users[i].bank.loan = loan_tok ? atoi(loan_tok) : 0;
+                if (last_interest_tok) {
+                    g_users[i].bank.last_interest_ts = atol(last_interest_tok);
+                } else {
+                    /* If accounts.csv lacks last_interest_ts, try to derive it from
+                     * the user's transaction log (data/txs/<name>.csv) by reading
+                     * the last transaction timestamp. If that fails, fall back
+                     * to current time to avoid retroactive application. */
+                    char txpath[512];
+                    snprintf(txpath, sizeof(txpath), "data/txs/%s.csv", name);
+                    char *lastbuf = NULL;
+                    size_t lastlen = 0;
+                    long derived_ts = 0;
+                    if (csv_read_last_lines(txpath, 1, &lastbuf, &lastlen) && lastbuf) {
+                        /* lastbuf contains a line like: "<ts>,...\n" */
+                        char *tok = strtok(lastbuf, ",");
+                        if (tok) derived_ts = atol(tok);
+                        free(lastbuf);
+                    }
+                    if (derived_ts > 0) g_users[i].bank.last_interest_ts = derived_ts;
+                    else g_users[i].bank.last_interest_ts = (long)time(NULL);
+                }
 
                 snprintf(
                     g_users[i].bank.name,
@@ -222,6 +245,8 @@ int user_register(const User *new_user) {
     snprintf(dst->pw, sizeof(dst->pw), "%s", new_user->pw);
     dst->isadmin = new_user->isadmin;
     dst->bank = new_user->bank;
+    /* ensure last_interest_ts initialized */
+    if (dst->bank.last_interest_ts == 0) dst->bank.last_interest_ts = (long)time(NULL);
     dst->completed_missions = new_user->completed_missions;
     dst->total_missions = new_user->total_missions;
     dst->mission_count = new_user->mission_count;
@@ -276,7 +301,14 @@ int user_update_balance(const char *username, int new_balance) {
         /* CSV format (extended): name,balance,rating,cash,loan
          * Backwards compatibility: older readers ignoring extra columns will still work.
          */
-        fprintf(fp, "%s,%d,%d,%d,%d\n", g_users[i].name, g_users[i].bank.balance, (int)g_users[i].bank.rating, g_users[i].bank.cash, g_users[i].bank.loan);
+        fprintf(fp, "%s,%d,%d,%d,%d,%ld,%s\n",
+                g_users[i].name,
+                g_users[i].bank.balance,
+                (int)g_users[i].bank.rating,
+                g_users[i].bank.cash,
+                g_users[i].bank.loan,
+                g_users[i].bank.last_interest_ts,
+                g_users[i].bank.log[0] ? g_users[i].bank.log : "");
     }
     fclose(fp);
     return found;
