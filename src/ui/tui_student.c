@@ -309,7 +309,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_mission_preview(mission_win, user);
     tui_common_destroy_box(mission_win);
 
-    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status");
+    WINDOW *account_win = tui_common_create_box(box_height, col_width, 7 + box_height, 2, "Account Status [a]");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
@@ -996,7 +996,9 @@ static void handle_mission_play_typing(User *user, Mission *m) {
     int width = COLS - 10;
     int starty = 3;
     int startx = 5;
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Typing Practice - Single Screen (type on input lines; Enter -> next)");
+    char title[128];
+    snprintf(title, sizeof(title), "%s (Enter answer; q to quit)", m->name);
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, title);
     keypad(win, TRUE);
 
     bool use_colors = has_colors();
@@ -1019,7 +1021,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
     while (1) {
         werase(win);
         box(win, 0, 0);
-        mvwprintw(win, 1, 2, "Typing Practice - line %d of %d", cur+1, lines);
+        mvwprintw(win, 1, 2, "%s - line %d of %d", m->name, cur+1, lines);
         mvwprintw(win, height - 3, 2, "Backspace allowed. Enter -> next line. Esc -> cancel.");
 
         /* draw each text, then an empty row, then input row, then an empty row */
@@ -1106,7 +1108,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 /* show final summary and wait for Enter (or q/Esc) to return */
                 werase(win);
                 box(win, 0, 0);
-                mvwprintw(win, 2, 4, "Typing Practice Complete!");
+                mvwprintw(win, 2, 4, "%s Complete!", m->name);
                 mvwprintw(win, 4, 4, "Time: %.2f sec", elapsed);
                 mvwprintw(win, 5, 4, "Accuracy: %.2f%% (%d/%d)", accuracy, total_correct, total_typed);
                 mvwprintw(win, 6, 4, "WPM: %.2f", wpm);
@@ -1205,7 +1207,9 @@ static void handle_mission_play_math(User *user, Mission *m) {
     int width = COLS - 10;
     int starty = 3;
     int startx = 5;
-    WINDOW *win = tui_common_create_box(height, width, starty, startx, "Math Quiz (Enter answer; q to quit)");
+    char title[128];
+    snprintf(title, sizeof(title), "%s (Enter answer; q to quit)", m->name);
+    WINDOW *win = tui_common_create_box(height, width, starty, startx, title);
     keypad(win, TRUE);
 
     while (solved < required) {
@@ -1238,7 +1242,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
         while (1) {
             werase(win);
             box(win, 0, 0);
-            mvwprintw(win, 2, 4, "Math Quiz: %d / %d", solved, required);
+            mvwprintw(win, 2, 4, "%s: %d / %d", m->name, solved, required);
             mvwprintw(win, 4, 4, "%s", prompt);
             mvwprintw(win, 4, 4 + (int)strlen(prompt), "%s", ibuf);
             mvwprintw(win, height - 3, 2, "Enter numeric answer and press Enter. q to cancel.");
@@ -1286,7 +1290,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
     /* show summary and leaderboard */
     werase(win);
     box(win, 0, 0);
-    mvwprintw(win, 2, 4, "Math Quiz Complete!");
+    mvwprintw(win, 2, 4, "%s Complete!", m->name);
     mvwprintw(win, 4, 4, "Total time: %.2f sec for %d problems", total_seconds, required);
     append_math_leaderboard(user->name, m->id, total_seconds);
 
