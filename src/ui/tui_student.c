@@ -314,24 +314,34 @@ static void draw_dashboard(User *user, const char *status) {
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
     mvwprintw(account_win, 5, 2, "Recent Transactions");
     mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 4, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
     mvwprintw(account_win, 5, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
         int row = 6;
+        /* split buffer into lines, collect pointers then print newest-first */
+        char *lines[256];
+        int line_count = 0;
         char *p = txbuf;
-        while (p && *p && row < getmaxy(account_win)-1) {
+        while (p && *p && line_count < (int)(sizeof(lines)/sizeof(lines[0]))) {
             char *nl = strchr(p, '\n');
             if (nl) *nl = '\0';
-            mvwprintw(account_win, row++, 4, "%s", p);
+            lines[line_count++] = p;
             if (!nl) break;
             p = nl + 1;
+        }
+        /* print in reverse so the most recent transaction appears first
+           and truncate each line to the account window width to avoid
+           automatic wrapping. */
+        int win_w = getmaxx(account_win);
+        int max_print = win_w - 6; /* 4 col offset + small margin */
+        if (max_print < 1) max_print = 1;
+        for (int i = line_count - 1; i >= 0 && row < getmaxy(account_win) - 1; --i) {
+            mvwprintw(account_win, row++, 4, "%.*s", max_print, lines[i]);
         }
     } else {
         mvwprintw(account_win, 5, 4, "No recent transactions");
@@ -644,7 +654,6 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
         mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
@@ -1037,10 +1046,12 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
+                napms(3500);
                 wrefresh(win);
             } else {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d is already reserved!", cursor);
+                napms(3500);
                 wrefresh(win);
             }
 

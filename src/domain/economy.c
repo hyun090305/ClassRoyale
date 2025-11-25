@@ -22,10 +22,3 @@ int econ_repay(Bank *acc, int amount) {
     }
     return account_adjust(acc, -amount);
 }
-
-int econ_tax(const Bank *acc) {
-    if (!acc || acc->balance <= 0) {
-        return 0;
-    }
-    return acc->balance / 10;
-}
