@@ -116,6 +116,10 @@ static User *prompt_login(void) {
         return NULL;
     }
     User *user = user_lookup(username);
+
+    if (user) {
+    user_stock_load_holdings(user);
+}
     /* Apply accumulated hourly interest since last_interest_ts */
     if (user) {
         long now = (long)time(NULL);
@@ -189,21 +193,16 @@ static void prompt_register(void) {
             fclose(fp1);
         }
 
-         /* 🔹 여기서 items용 빈 CSV 생성: data/items/(username).csv */
         {
             char path[256];
-            /* data/items 디렉터리는 미리 만들어져 있다고 가정 */
-            snprintf(path, sizeof(path), "data/items/%s_items.csv", username);
-
-            FILE *fp_items = fopen(path, "w");
-            if (fp_items) {
-                /* 처음에는 비어 있는 파일만 필요하다고 했으니 아무 것도 안 쓰고 닫기 */
-                fclose(fp_items);
-            } else {
-                /* 디버그 로그 정도만 찍고 싶으면 fprintf(stderr, ...) 써도 됨 */
-                // fprintf(stderr, "Failed to create items file: %s\n", path);
+            snprintf(path, sizeof(path), "data/stocks/%s.csv", username);
+            FILE *fp_stocks = fopen(path, "w");
+            if (fp_stocks) {
+                // 일단 빈 파일로 생성만 해둠
+                fclose(fp_stocks);
             }
         }
+    
     } else {
         tui_ncurses_toast("Registration failed - name may be duplicate", 1200);
     }

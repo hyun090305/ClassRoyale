@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "../../include/domain/account.h"
 #include "../../include/domain/user.h"
@@ -9,7 +10,7 @@
 #include <stdlib.h>
 
 #define MAX_STOCKS 16
-#define STOCK_STEP_SECONDS 60
+#define STOCK_STEP_SECONDS 600
 
 static Stock g_stocks[MAX_STOCKS];
 static int   g_stock_count  = 0;
@@ -30,6 +31,51 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol);
 /* -------------------------------------------------------------------------- */
 /*  static helper 함수 정의                                                   */
 /* -------------------------------------------------------------------------- */
+
+static void user_stock_save_holdings(User *user) {
+    if (!user) return;
+
+    char path[256];
+    snprintf(path, sizeof(path), "data/stocks/%s.csv", user->name);
+
+    FILE *fp = fopen(path, "w");
+    if (!fp) {
+        // 필요하면 디버그로그:
+        // fprintf(stderr, "failed to open %s\n", path);
+        return;
+    }
+
+    for (int i = 0; i < user->holding_count; ++i) {
+        StockHolding *h = &user->holdings[i];
+        if (h->qty <= 0) {
+            continue; // 0 이하는 저장 안 함
+        }
+        fprintf(fp, "%s,%d\n", h->symbol, h->qty);
+    }
+
+    fclose(fp);
+}
+
+void trim_whitespace(char *str) {
+    char *end;
+
+    // 앞쪽 공백 제거
+    while (isspace((unsigned char)*str)) str++;
+
+    if (*str == 0) {
+        // 문자열이 모두 공백인 경우
+        *str = '\0';
+        return;
+    }
+
+    // 뒤쪽 공백 제거
+    end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+
+    // 널문자 추가
+    *(end + 1) = '\0';
+}
+
 
 static StockHolding *find_holding(User *user, const char *symbol) {
     if (!user || !symbol) {
@@ -62,7 +108,6 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol) {
     snprintf(holding->symbol, sizeof(holding->symbol), "%s", symbol);
     return holding;
 }
-
 
 int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
     ensure_seeded();
@@ -107,48 +152,12 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
         account_add_tx(user, revenue, "STOCK_SELL");
     }
 
+    /* 🔹 거래 성공했으니까 CSV에 현재 보유량 덤프 */
+    user_stock_save_holdings(user);
+
     return 1;
 }
 
-/*
- * 배당 지급:
- *  - 한 유저가 가진 모든 종목에 대해
- *    dividend_per_tick * 보유수량 만큼 입금
- *  - 총 받은 배당금 합계를 반환
- */
-int stock_pay_dividends(User *user) {
-    ensure_seeded();
-    if (!user) {
-        return 0;
-    }
-
-    int total_dividend = 0;
-
-    for (int i = 0; i < user->holding_count; ++i) {
-        StockHolding *holding = &user->holdings[i];
-        if (holding->qty <= 0) {
-            continue;
-        }
-
-        Stock *stock = find_stock(holding->symbol);
-        if (!stock) {
-            continue;
-        }
-        if (stock->dividend_per_tick <= 0) {
-            continue;
-        }
-
-        int amount = stock->dividend_per_tick * holding->qty;
-        if (amount <= 0) {
-            continue;
-        }
-
-        account_add_tx(user, amount, "DIVIDEND");
-        total_dividend += amount;
-    }
-
-    return total_dividend;
-}
 
 
 static void stock_load_from_csv(const char *path) {
@@ -159,7 +168,7 @@ static void stock_load_from_csv(const char *path) {
 
     char line[512];
 
-        /* 1줄째: 시간일 수도 있고 아닐 수도 있음 */
+    /* 1줄째: 시간일 수도 있고 아닐 수도 있음 */
     if (!fgets(line, sizeof(line), fp)) {
         fclose(fp);
         return;
@@ -167,7 +176,8 @@ static void stock_load_from_csv(const char *path) {
 
     /* 줄 끝의 개행 제거 */
     size_t len_line = strlen(line);
-    while (len_line > 0 && (line[len_line - 1] == '\n' || line[len_line - 1] == '\r')) {
+    while (len_line > 0 &&
+           (line[len_line - 1] == '\n' || line[len_line - 1] == '\r')) {
         line[--len_line] = '\0';
     }
 
@@ -218,15 +228,11 @@ static void stock_load_from_csv(const char *path) {
         }
     }
 
-
     memset(g_stocks, 0, sizeof(g_stocks));
     g_stock_count = 0;
 
-    /* 만약 첫 줄이 시간 아니었으면, line에 이미 종목 데이터가 들어있으니까
-       그 줄부터 다시 처리 */
-
+    /* 실제 종목 라인들 파싱 */
     while (fgets(line, sizeof(line), fp)) {
-PARSE_LINE_AS_STOCK:
         if (line[0] == '\n' || line[0] == '\r' || line[0] == '#') {
             continue;
         }
@@ -235,8 +241,26 @@ PARSE_LINE_AS_STOCK:
             break;
         }
 
-        char *name = strtok(line, ", \t\r\n");
+        /* 개행 제거 */
+        size_t l = strlen(line);
+        while (l > 0 && (line[l - 1] == '\n' || line[l - 1] == '\r')) {
+            line[--l] = '\0';
+        }
+
+        /* 형식: name,news,price1,price2,... */
+
+        char *name = strtok(line, ",");
         if (!name) continue;
+
+        char *news = strtok(NULL, ",");  // 뉴스 문자열 (쉼표 기준)
+
+        /* 공백 정리 (trim_whitespace는 너가 이미 쓰던 함수 재사용) */
+        trim_whitespace(name);
+        if (news) {
+            trim_whitespace(news);
+        } else {
+            news = "";
+        }
 
         Stock *s = &g_stocks[g_stock_count];
         memset(s, 0, sizeof(*s));
@@ -244,18 +268,30 @@ PARSE_LINE_AS_STOCK:
         snprintf(s->name, sizeof(s->name), "%s", name);
         s->id = g_stock_count + 1;
 
+        if (news && news[0] != '\0') {
+            snprintf(s->news, sizeof(s->news), "%s", news);
+        } else {
+            snprintf(s->news, sizeof(s->news), "");  // 없으면 빈 문자열
+        }
+
+        /* 나머지 토큰들은 전부 가격 */
         int idx = 0;
         char *token = NULL;
-        while ((token = strtok(NULL, ", \t\r\n")) != NULL) {
+        while ((token = strtok(NULL, ",")) != NULL) {
             if (idx >= 200) break;
+
+            trim_whitespace(token);
+            if (token[0] == '\0') continue;  // 빈 값 스킵
+
             s->log[idx++] = atoi(token);
         }
 
         if (idx == 0) {
-            continue; // 가격 기록이 없으면 무시
+            /* 가격 기록이 없으면 이 종목은 무시 */
+            continue;
         }
 
-        s->log_len    = idx;          // 전체 CSV 길이
+        s->log_len    = idx;          // 전체 시계열 길이
         s->base_price = s->log[0];
 
         /* 시간 0 기준: 첫 번째 값이 현재가 */
@@ -265,20 +301,16 @@ PARSE_LINE_AS_STOCK:
         /* 이 종목은 지금 1개까지만 공개된 상태 */
         g_visible_len[g_stock_count] = 1;
 
-
-
-        snprintf(s->news, sizeof(s->news),
-                 "Loaded %d points of history", s->log_len);
-
         g_stock_count++;
-
     }
 
     fclose(fp);
 
     if (g_stock_count == 0) {
+        /* 필요하면 여기서 디버그 로그 */
     }
 }
+
 
 static void ensure_seeded(void) {
     if (g_seeded) return;
@@ -390,4 +422,47 @@ int stock_get_history(const char *symbol, int *out_buf, int max_len) {
         out_buf[i] = s->log[i];
     }
     return len;
+}
+
+/* data/stocks/(username).csv 에 저장된
+ * "종목명,보유량" 들을 user->holdings[] 로 불러온다
+ */
+static void user_stock_load_holdings(User *user) {
+    if (!user) return;
+
+    char path[256];
+    snprintf(path, sizeof(path), "data/stocks/%s.csv", user->name);
+
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return;  // 파일 없으면 보유량 없음
+    }
+
+    user->holding_count = 0;  // 초기화
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        // 공백/개행 제거
+        char *p = strtok(line, ", \t\r\n");
+        if (!p) continue;
+
+        char symbol[64];
+        snprintf(symbol, sizeof(symbol), "%s", p);
+
+        p = strtok(NULL, ", \t\r\n");
+        if (!p) continue;
+
+        int qty = atoi(p);
+        if (qty <= 0) continue;
+
+        if (user->holding_count >= MAX_HOLDINGS)
+            break;
+
+        StockHolding *h = &user->holdings[user->holding_count++];
+        memset(h, 0, sizeof(*h));
+        snprintf(h->symbol, sizeof(h->symbol), "%s", symbol);
+        h->qty = qty;
+    }
+
+    fclose(fp);
 }

@@ -2027,8 +2027,8 @@ static void handle_stocks_view(User *user) {
 
         /* 헤더 */
         mvwprintw(win, 1, 2,
-                  "%-3s %-8s %-7s %-5s %-6s %-4s %-20s",
-                  "ID", "NAME", "PRICE", "OWN", "DIV", "Δ", "NEWS");
+                  "%-3s %-8s %-7s %-5s %-6s %-20s",
+                  "ID", "NAME", "PRICE", "OWN", "diff", "NEWS");
 
         int visible_rows = height - 4; // 위에 2줄 + 아래 안내 한 줄 빼고
 
@@ -2056,12 +2056,11 @@ static void handle_stocks_view(User *user) {
                 win,
                 row,
                 2,
-                "%-3d %-8s %-7d %-5d %-6d %-4s %-20s",
+                "%-3d %-8s %-7d %-5d %-4s %-20s",
                 stocks[i].id,
                 stocks[i].name,
                 stocks[i].current_price,
                 owned,
-                stocks[i].dividend_per_tick,
                 diff_str,
                 stocks[i].news
             );
@@ -2073,7 +2072,7 @@ static void handle_stocks_view(User *user) {
 
         /* 아래쪽 조작 안내 (여기를 '버튼' 느낌으로 써도 됨) */
         mvwprintw(win, height - 2, 2,
-                  "↑↓ move  Enter buy  s sell  d dividend  g graph  q close");
+                  "↑↓ move  Enter buy  s sell  g graph  q close");
 
         wrefresh(win);
 
@@ -2107,17 +2106,6 @@ static void handle_stocks_view(User *user) {
                 tui_ncurses_toast("Sell complete", 800);
             } else {
                 tui_ncurses_toast("Not enough shares", 800);
-            }
-        } else if (ch == 'd' || ch == 'D') {
-            /* 배당 */
-            int earned = stock_pay_dividends(user);
-            if (earned > 0) {
-                char msg[64];
-                snprintf(msg, sizeof(msg),
-                         "Dividends +%dCr", earned);
-                tui_ncurses_toast(msg, 800);
-            } else {
-                tui_ncurses_toast("No dividends", 800);
             }
         } else if (ch == 'g' || ch == 'G') {
             /* 🔹 현재 선택된 종목의 그래프 화면으로 진입 */
