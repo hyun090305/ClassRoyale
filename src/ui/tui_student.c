@@ -114,7 +114,7 @@ static void qotd_runtime_clear(void) {
     qotd_solved_count = 0;
 }
 
-static void qotd_mark_solved(const char *name) {
+static void qotd_runtime_mark_solved(const char *name) {
     if (!name || qotd_solved_count >= (int)(sizeof(qotd_solved_users)/sizeof(qotd_solved_users[0]))) return;
     for (int i = 0; i < qotd_solved_count; ++i) {
         if (qotd_solved_users[i] && strcmp(qotd_solved_users[i], name) == 0) return;
@@ -143,7 +143,7 @@ static void handle_qotd_view(User *user) {
         int ucount = 0;
         if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
             for (int i = 0; i < ucount; ++i) {
-                if (users[i]) qotd_mark_solved(users[i]);
+                if (users[i]) qotd_runtime_mark_solved(users[i]);
                 free(users[i]);
             }
             free(users);
@@ -195,9 +195,11 @@ static void handle_qotd_view(User *user) {
                 if (ok) {
                     /* persist solved entry for today */
                     if (tmnow) {
-                        qotd_record_entry(today, user->name, question, "solved");
+                        /* persist solved entry via domain API */
+                        qotd_mark_solved(user->name);
                     }
-                    qotd_mark_solved(user->name);
+                    /* mark in-memory runtime cache so UI hides QOTD */
+                    qotd_runtime_mark_solved(user->name);
                     /* persist balance to accounts CSV as other flows do */
                     user_update_balance(user->name, user->bank.balance);
                     mvwprintw(win, height - 2, 2, "Correct! +%dCr awarded. Press any key.", reward);
@@ -343,7 +345,7 @@ static void draw_dashboard(User *user, const char *status) {
             int ucount = 0;
             if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
                 for (int i = 0; i < ucount; ++i) {
-                    if (users[i]) qotd_mark_solved(users[i]);
+                    if (users[i]) qotd_runtime_mark_solved(users[i]);
                     free(users[i]);
                 }
                 free(users);
