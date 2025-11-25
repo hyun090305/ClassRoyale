@@ -642,19 +642,12 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
         mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
-        mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
-        mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
-        mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 5, 2, "Estimated Tax: %d Cr", econ_tax(&user->bank));
-        mvwprintw(win, 7, 2, "Commands: d)deposit-from-cash  b)borrow  r)repay  w)withdraw-to-cash  q)close");
+        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
-        if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
             char label[32];
                 if (ch == 'd') {
-                snprintf(label, sizeof(label), "Amount to deposit from cash");
                 snprintf(label, sizeof(label), "Amount to deposit from cash");
             } else if (ch == 'b') {
                 snprintf(label, sizeof(label), "Loan amount (take loan)");
@@ -662,21 +655,13 @@ static void handle_account_view(User *user) {
                 snprintf(label, sizeof(label), "Amount to repay loan");
             } else if (ch == 'w') {
                 snprintf(label, sizeof(label), "Amount to withdraw to cash");
-                snprintf(label, sizeof(label), "Loan amount (take loan)");
-            } else if (ch == 'r') {
-                snprintf(label, sizeof(label), "Amount to repay loan");
-            } else if (ch == 'w') {
-                snprintf(label, sizeof(label), "Amount to withdraw to cash");
             } else {
-                snprintf(label, sizeof(label), "Amount");
                 snprintf(label, sizeof(label), "Amount");
             }
             int amount = 0;
             if (tui_ncurses_prompt_number(win, label, &amount) && amount > 0) {
                 int ok = 0;
                 if (ch == 'd') {
-                    /* move from cash -> deposit */
-                    ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                     /* move from cash -> deposit */
                     ok = account_deposit_from_cash(user, amount, "DEPOSIT_FROM_CASH");
                 } else if (ch == 'b') {
@@ -705,7 +690,6 @@ static void handle_account_view(User *user) {
         }
     }
     tui_common_destroy_box(win);
-}
 }
 
 static void trim_whitespace(char *text) {
