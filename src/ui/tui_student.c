@@ -325,13 +325,25 @@ static void draw_dashboard(User *user, const char *status) {
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
         int row = 6;
+        /* split buffer into lines, collect pointers then print newest-first */
+        char *lines[256];
+        int line_count = 0;
         char *p = txbuf;
-        while (p && *p && row < getmaxy(account_win)-1) {
+        while (p && *p && line_count < (int)(sizeof(lines)/sizeof(lines[0]))) {
             char *nl = strchr(p, '\n');
             if (nl) *nl = '\0';
-            mvwprintw(account_win, row++, 4, "%s", p);
+            lines[line_count++] = p;
             if (!nl) break;
             p = nl + 1;
+        }
+        /* print in reverse so the most recent transaction appears first
+           and truncate each line to the account window width to avoid
+           automatic wrapping. */
+        int win_w = getmaxx(account_win);
+        int max_print = win_w - 6; /* 4 col offset + small margin */
+        if (max_print < 1) max_print = 1;
+        for (int i = line_count - 1; i >= 0 && row < getmaxy(account_win) - 1; --i) {
+            mvwprintw(account_win, row++, 4, "%.*s", max_print, lines[i]);
         }
     } else {
         mvwprintw(account_win, 5, 4, "No recent transactions");
