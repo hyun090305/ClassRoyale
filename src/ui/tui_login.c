@@ -14,7 +14,12 @@ static void draw_welcome(int highlight, const char *status_line) {
     int height = 20;
     int starty = (LINES - height) / 2;
     int startx = (COLS - width) / 2;
-
+    /* Ensure the standard screen is cleared so previous overlays don't persist
+     * (calling refresh() after wrefresh(win) can redraw stdscr over the
+     * window; clear stdscr before drawing and avoid a global refresh here). */
+    clear();
+    /* leave stdscr refreshed to reflect the cleared background */
+    refresh();
     if (!win) {
         win = tui_common_create_box(height, width, starty, startx, "Class Royale");
     } else {
@@ -33,7 +38,6 @@ static void draw_welcome(int highlight, const char *status_line) {
         mvwprintw(win, height - 4, 2, "%s", status_line);
     }
     wrefresh(win);
-    refresh();
 }
 
 static rank_t prompt_role(WINDOW *form) {

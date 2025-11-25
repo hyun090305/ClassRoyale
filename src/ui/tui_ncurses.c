@@ -79,7 +79,7 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
         cur_col += (int)strlen(label) + 2;
     }
     wmove(win, row, cur_col);
-    wclrtoeol(win);
+    //wclrtoeol(win);
     wrefresh(win);
     noecho();
     curs_set(1);
