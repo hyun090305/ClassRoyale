@@ -38,7 +38,6 @@ static void handle_class_seats_view(User *user);
 /* forward declarations for mission play screens - MUST be before handle_mission_board */
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
-static void handle_stocks_view(User *user);
 
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
@@ -502,7 +501,7 @@ static void handle_shop_view(User *user) {
 
         // 3) 맨 아래에 Class Seats 버튼(한 줄) 출력
         int class_line = height - 2;
-        int stock_line = height - 3;        // 아래쪽에서 한 줄 위
+        // int stock_line = height - 1;        // 아래쪽에서 한 줄 위
         if (class_line < 1) class_line = 1;   // 혹시나 안전빵
 
         if (highlight == shop->item_count) {
@@ -510,7 +509,7 @@ static void handle_shop_view(User *user) {
         }
 
         mvwprintw(win, class_line, 2, "[ Class Seats ]  (Enter)");
-        mvwprintw(win, stock_line, 2, "[ Stocks ]  (Enter)");
+        // mvwprintw(win, stock_line, 2, "[ Stocks ]  (Enter)");
 
         if (highlight == shop->item_count) {
             wattroff(win, A_REVERSE);
@@ -530,7 +529,7 @@ static void handle_shop_view(User *user) {
             continue;
         }
 
-        int max_index = shop->item_count+1; // 마지막 인덱스 = Class Seats 버튼
+        int max_index = shop->item_count; // 마지막 인덱스 = Class Seats 버튼
 
         if (ch == KEY_UP) {
             highlight = (highlight - 1 + (max_index + 1)) % (max_index + 1);
@@ -539,16 +538,9 @@ static void handle_shop_view(User *user) {
 
         } else if (ch == '\n' || ch == '\r') {
             // ✅ Class Seats 선택했을 때
-            if (highlight == shop->item_count+1) {
-                // 새 화면으로 이동
-                handle_class_seats_view(user);
-                // 돌아오면 상점 화면 다시 그리기 계속
-                continue;
-            }
-
             if (highlight == shop->item_count) {
                 // 새 화면으로 이동
-                handle_stocks_view(user);
+                handle_class_seats_view(user);
                 // 돌아오면 상점 화면 다시 그리기 계속
                 continue;
             }
@@ -901,6 +893,37 @@ static void handle_class_seats_view(User *user) {
         5,
         "Class Seats (q to close)"
     );
+
+    // win 내부용 출력 시작 좌표
+    int start_y = 2;
+    int start_x = 2;
+
+    // 6행 × 5열 = 30석 출력
+    for (int row = 0; row < 6; row++) {
+        for (int col = 0; col < 5; col++) {
+            int seat_no = row * 5 + col + 1;
+
+            char buf[128];
+            if (strlen(g_seats[seat_no].name) == 0) {
+                snprintf(buf, sizeof(buf), "[%2d: empty]", seat_no);
+            } else {
+                snprintf(buf, sizeof(buf), "[%2d: %s]", seat_no, g_seats[seat_no].name);
+            }
+
+            mvwprintw(win, start_y + row, start_x + col * 18, "%s", buf);
+        }
+    }
+
+    wrefresh(win);
+
+    // q 누르면 종료
+    int ch;
+    while ((ch = wgetch(win)) != 'q') {}
+
+    delwin(win);ㅁ
+
+}
+
 
     keypad(win, TRUE);
 
@@ -1329,184 +1352,3 @@ static void handle_mission_play_math(User *user, Mission *m) {
 
 /* integrate into mission board: when user presses Enter on a mission that is not completed,
    launch the correct play screen based on m->type */
-
-
-static int get_owned_qty(User *user, const char *symbol) {
-    if (!user || !symbol) return 0;
-
-    for (int i = 0; i < user->holding_count; ++i) {
-        if (strncmp(user->holdings[i].symbol,
-                    symbol,
-                    sizeof(user->holdings[i].symbol)) == 0) {
-            return user->holdings[i].qty;
-        }
-    }
-    return 0;
-}
-
-// 주식 화면: 리스트 + @ 그래프 + 매수/매도/배당
-static void handle_stocks_view(User *user) {
-    Stock stocks[16];
-    int count = 0;
-
-    // 전체 종목 리스트 가져오기
-    if (!stock_list(stocks, &count) || count == 0) {
-        tui_ncurses_toast("No stock data", 800);
-        return;
-    }
-
-    int height = LINES - 4;
-    int width  = COLS - 6;
-
-    WINDOW *win = tui_common_create_box(
-        height,
-        width,
-        2,
-        3,
-        "Stocks (Enter=Buy / s=Sell / d=Dividend / q=Close)"
-    );
-
-    keypad(win, TRUE);
-    int highlight = 0;
-    int running   = 1;
-
-    while (running) {
-        werase(win);
-        box(win, 0, 0);
-
-        // 상단 타이틀 + 잔액
-        mvwprintw(win, 0, 2,
-                  " Stocks - Balance %dCr ",
-                  user->bank.balance);
-
-        // 헤더
-        mvwprintw(win, 1, 2,
-                  "%-3s %-8s %-7s %-5s %-6s %-4s %-20s",
-                  "ID", "NAME", "PRICE", "OWN", "DIV", "Δ", "NEWS");
-
-        int visible_rows = height - 4; // 위 2줄 + 아래 안내 줄 빼고
-
-        // 그래프용 최대 가격 찾기
-        int max_price = 1;
-        for (int i = 0; i < count; ++i) {
-            if (stocks[i].current_price > max_price) {
-                max_price = stocks[i].current_price;
-            }
-        }
-
-        // 그래프 영역 설정 (오른쪽에 세로 @ 막대)
-        int graph_width  = count;              // 종목 개수만큼 기둥
-        if (graph_width > width - 10) {
-            graph_width = width - 10;         // 너무 넓어지지 않게 안전장치
-        }
-        int graph_x      = width - graph_width - 2; // 박스 오른쪽에서 약간 여유
-        int graph_bottom = height - 2;
-        int graph_top    = 3;
-        int graph_height = graph_bottom - graph_top + 1;
-        if (graph_height < 3) graph_height = 3;
-
-        // 텍스트 리스트 출력
-        for (int i = 0; i < count && i < visible_rows; ++i) {
-            int row    = 2 + i;
-            int owned  = get_owned_qty(user, stocks[i].name);
-            int diff   = stocks[i].current_price - stocks[i].previous_price;
-            char diff_str[8];
-
-            if (stocks[i].previous_price == 0) {
-                snprintf(diff_str, sizeof(diff_str), " - ");
-            } else if (diff > 0) {
-                snprintf(diff_str, sizeof(diff_str), "+%d", diff);
-            } else if (diff < 0) {
-                snprintf(diff_str, sizeof(diff_str), "%d", diff);
-            } else {
-                snprintf(diff_str, sizeof(diff_str), "0");
-            }
-
-            if (i == highlight) {
-                wattron(win, A_REVERSE);
-            }
-
-            mvwprintw(
-                win,
-                row,
-                2,
-                "%-3d %-8s %-7d %-5d %-6d %-4s %-20s",
-                stocks[i].id,
-                stocks[i].name,
-                stocks[i].current_price,
-                owned,
-                stocks[i].dividend_per_tick,
-                diff_str,
-                stocks[i].news
-            );
-
-            if (i == highlight) {
-                wattroff(win, A_REVERSE);
-            }
-        }
-
-        // @ 그래프 그리기 (아래에서 위로 쌓기)
-        for (int i = 0; i < count && i < graph_width; ++i) {
-            double ratio = (double)stocks[i].current_price / (double)max_price;
-            if (ratio < 0.1) ratio = 0.1;            // 최소 높이 보장
-            int bar_h = (int)(ratio * graph_height);
-            if (bar_h < 1) bar_h = 1;
-            if (bar_h > graph_height) bar_h = graph_height;
-
-            int x = graph_x + i;
-            for (int k = 0; k < bar_h; ++k) {
-                int y = graph_bottom - k;
-                if (y < graph_top) break;
-                mvwaddch(win, y, x, '@');
-            }
-        }
-
-        // 아래쪽 조작 안내
-        mvwprintw(win, height - 2, 2,
-                  "↑↓ move  Enter buy  s sell  d dividend  q close");
-
-        wrefresh(win);
-
-        int ch = wgetch(win);
-
-        if (ch == KEY_UP) {
-            highlight = (highlight - 1 + count) % count;
-        } else if (ch == KEY_DOWN) {
-            highlight = (highlight + 1) % count;
-        } else if (ch == '\n' || ch == '\r') {
-            // 매수: 선택 종목 1주
-            Stock *s = &stocks[highlight];
-            if (stock_deal(user->name, s->name, 1, 1)) {
-                tui_ncurses_toast("Buy complete", 800);
-                // 가격/previous 갱신
-                stock_list(stocks, &count);
-            } else {
-                tui_ncurses_toast("Buy failed", 800);
-            }
-        } else if (ch == 's' || ch == 'S') {
-            // 매도: 선택 종목 1주
-            Stock *s = &stocks[highlight];
-            if (stock_deal(user->name, s->name, 1, 0)) {
-                tui_ncurses_toast("Sell complete", 800);
-                stock_list(stocks, &count);
-            } else {
-                tui_ncurses_toast("Not enough shares", 800);
-            }
-        } else if (ch == 'd' || ch == 'D') {
-            // 배당: 이 유저가 가진 모든 주식에 배당 지급
-            int earned = stock_pay_dividends(user);
-            if (earned > 0) {
-                char msg[64];
-                snprintf(msg, sizeof(msg),
-                         "Dividends +%dCr", earned);
-                tui_ncurses_toast(msg, 800);
-            } else {
-                tui_ncurses_toast("No dividends", 800);
-            }
-        } else if (ch == 'q' || ch == 27) {
-            running = 0;
-        }
-    }
-
-    tui_common_destroy_box(win);
-}
