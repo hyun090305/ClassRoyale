@@ -29,14 +29,7 @@
 #include "../../include/domain/notification.h"
 #include "../../include/domain/account.h"
 #include "../../include/domain/message.h"
-
-
-#define ACCOUNT_STATS_MAX_TX 256
-
-typedef struct {
-    long timestamp;
-    long total_asset;
-} AssetPoint;
+#include "../../include/domain/qotd.h"
 
 #include <stdbool.h>   // bool 쓸 거면 필요
 
@@ -47,8 +40,6 @@ static void handle_class_seats_view(User *user);
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
-static void handle_account_statistics(User *user);
-static void handle_stock_graph_view(const Stock *stock);
 
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
@@ -112,6 +103,14 @@ static void qotd_mark_solved(const char *name) {
     qotd_solved_users[qotd_solved_count++] = strdup(name);
 }
 
+static void qotd_runtime_clear(void) {
+    for (int i = 0; i < qotd_solved_count; ++i) {
+        if (qotd_solved_users[i]) free(qotd_solved_users[i]);
+        qotd_solved_users[i] = NULL;
+    }
+    qotd_solved_count = 0;
+}
+
 /* QOTD viewer:
  * - open with 'd' from student menu
  * - shows question and choices
@@ -122,6 +121,24 @@ static void qotd_mark_solved(const char *name) {
  */
 static void handle_qotd_view(User *user) {
     if (!user) return;
+    /* load today's solved users into runtime cache */
+    char today[32];
+    time_t tnow = time(NULL);
+    struct tm *tmnow = localtime(&tnow);
+    if (tmnow) {
+        strftime(today, sizeof(today), "%Y-%m-%d", tmnow);
+        qotd_runtime_clear();
+        char **users = NULL;
+        int ucount = 0;
+        if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
+            for (int i = 0; i < ucount; ++i) {
+                if (users[i]) qotd_mark_solved(users[i]);
+                free(users[i]);
+            }
+            free(users);
+        }
+    }
+
     if (qotd_is_solved(user->name)) {
         tui_ncurses_toast("QOTD already solved", 900);
         return;
@@ -166,6 +183,10 @@ static void handle_qotd_view(User *user) {
                 /* use account_add_tx to adjust balance and persist tx */
                 int ok = account_add_tx(user, reward, "QOTD");
                 if (ok) {
+                    /* persist solved entry for today */
+                    if (tmnow) {
+                        qotd_record_entry(today, user->name, question, "solved");
+                    }
                     qotd_mark_solved(user->name);
                     /* persist balance to accounts CSV as other flows do */
                     user_update_balance(user->name, user->bank.balance);
@@ -300,6 +321,25 @@ static void render_news(WINDOW *win, const User *user) {
 
 static void draw_dashboard(User *user, const char *status) {
     erase();
+    /* refresh today's QOTD runtime cache so hints reflect persisted state */
+    if (user) {
+        char today[32];
+        time_t tnow = time(NULL);
+        struct tm *tmnow = localtime(&tnow);
+        if (tmnow) {
+            strftime(today, sizeof(today), "%Y-%m-%d", tmnow);
+            qotd_runtime_clear();
+            char **users = NULL;
+            int ucount = 0;
+            if (qotd_get_solved_users_for_date(today, &users, &ucount)) {
+                for (int i = 0; i < ucount; ++i) {
+                    if (users[i]) qotd_mark_solved(users[i]);
+                    free(users[i]);
+                }
+                free(users);
+            }
+        }
+    }
     mvprintw(1, (COLS - 30) / 2, "Class Royale - Student Dashboard");
     mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
     mvprintw(3, 2, "Name: %s | Deposit: %d Cr | Cash: %d Cr | Rating: %c", user->name, user->bank.balance, user->bank.cash, user->bank.rating);
@@ -325,33 +365,17 @@ static void draw_dashboard(User *user, const char *status) {
     mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
     mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
     mvwprintw(account_win, 5, 2, "Recent Transactions");
-    mvwprintw(account_win, 1, 2, "Deposit: %d Cr", user->bank.balance);
-    mvwprintw(account_win, 2, 2, "Cash: %d Cr", user->bank.cash);
-    mvwprintw(account_win, 3, 2, "Loan: %d Cr", user->bank.loan);
-    mvwprintw(account_win, 5, 2, "Recent Transactions");
     char txbuf[2048];
     int got = account_recent_tx(user->name, 6, txbuf, sizeof(txbuf));
     if (got > 0) {
         int row = 6;
-        /* split buffer into lines, collect pointers then print newest-first */
-        char *lines[256];
-        int line_count = 0;
         char *p = txbuf;
-        while (p && *p && line_count < (int)(sizeof(lines)/sizeof(lines[0]))) {
+        while (p && *p && row < getmaxy(account_win)-1) {
             char *nl = strchr(p, '\n');
             if (nl) *nl = '\0';
-            lines[line_count++] = p;
+            mvwprintw(account_win, row++, 4, "%s", p);
             if (!nl) break;
             p = nl + 1;
-        }
-        /* print in reverse so the most recent transaction appears first
-           and truncate each line to the account window width to avoid
-           automatic wrapping. */
-        int win_w = getmaxx(account_win);
-        int max_print = win_w - 6; /* 4 col offset + small margin */
-        if (max_print < 1) max_print = 1;
-        for (int i = line_count - 1; i >= 0 && row < getmaxy(account_win) - 1; --i) {
-            mvwprintw(account_win, row++, 4, "%.*s", max_print, lines[i]);
         }
     } else {
         mvwprintw(account_win, 5, 4, "No recent transactions");
@@ -432,24 +456,21 @@ static void handle_mission_board(User *user) {
                 highlight = (highlight + 1) % available;
             }
         } else if ((ch == '\n' || ch == '\r') && available > 0) {
-            Mission *sel = &user->missions[highlight];
-            if (sel->completed) {
+            int mid = user->missions[highlight].id;
+            Mission selected = user->missions[highlight];
+            if (selected.completed) {
                 tui_ncurses_toast("Mission already completed", 800);
             } else {
-                /* launch appropriate play UI; UI will call mission_complete when finished */
-                if (sel->type == 0) {
-                    handle_mission_play_typing(user, sel);
-                } else {
-                    handle_mission_play_math(user, sel);
+                if (selected.type == 0) {
+                    handle_mission_play_typing(user, &selected);
+                } else if (selected.type == 1) {
+                    handle_mission_play_math(user, &selected);
                 }
-                /* reload user's missions so completion / rewards show immediately */
+                /* after returning, reload user missions so UI updates */
                 mission_load_user(user->name, user);
                 available = user->mission_count;
-                if (available == 0) {
-                    highlight = 0;
-                } else if (highlight >= available) {
-                    highlight = available - 1;
-                }
+                if (available == 0) highlight = 0;
+                else if (highlight >= available) highlight = available - 1;
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;
@@ -458,6 +479,9 @@ static void handle_mission_board(User *user) {
     tui_common_destroy_box(win);
 }
 
+// 위쪽 어딘가에 (파일 상단) 이 두 함수의 프로토타입이 있어야 함:
+// static void handle_stocks_view(User *user);
+// static void handle_class_seats_view(User *user);
 
 static void handle_shop_view(User *user) {
     Shop shops[2];
@@ -646,204 +670,12 @@ static void handle_shop_view(User *user) {
     tui_common_destroy_box(win);
 }
 
-static int account_reason_matches(const char *reason, const char *prefix) {
-    if (!reason || !prefix) return 0;
-    size_t need = strlen(prefix);
-    if (need == 0) return 0;
-    return strncmp(reason, prefix, need) == 0;
-}
-
-static int collect_asset_points(User *user, AssetPoint *points, int max_points) {
-    if (!user || !points || max_points <= 0) return 0;
-
-    char path[512];
-    snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
-
-    char *raw = NULL;
-    size_t raw_len = 0;
-    if (!csv_read_last_lines(path, ACCOUNT_STATS_MAX_TX, &raw, &raw_len) || !raw) {
-        if (raw) free(raw);
-        return 0;
-    }
-
-    typedef struct {
-        long ts;
-        int amount;
-        int balance;
-        char reason[64];
-    } AccountTxRow;
-
-    AccountTxRow rows[ACCOUNT_STATS_MAX_TX];
-    int row_count = 0;
-
-    char *cursor = raw;
-    while (cursor && *cursor && row_count < ACCOUNT_STATS_MAX_TX) {
-        char *line = cursor;
-        char *nl = strchr(line, '\n');
-        if (nl) *nl = '\0';
-
-        if (*line) {
-            char *tokens[4] = {0};
-            int tokc = 0;
-            char *tok = strtok(line, ",");
-            while (tok && tokc < 4) {
-                tokens[tokc++] = tok;
-                tok = strtok(NULL, ",");
-            }
-            if (tokc >= 3) {
-                AccountTxRow row = {0};
-                row.ts = tokens[0] ? atol(tokens[0]) : 0;
-                if (tokc == 4) {
-                    snprintf(row.reason, sizeof(row.reason), "%s", tokens[1] ? tokens[1] : "");
-                    row.amount = tokens[2] ? atoi(tokens[2]) : 0;
-                    row.balance = tokens[3] ? atoi(tokens[3]) : 0;
-                } else {
-                    row.reason[0] = '\0';
-                    row.amount = tokens[1] ? atoi(tokens[1]) : 0;
-                    row.balance = tokens[2] ? atoi(tokens[2]) : 0;
-                }
-                rows[row_count++] = row;
-            }
-        }
-
-        if (!nl) break;
-        cursor = nl + 1;
-    }
-
-    free(raw);
-
-    if (row_count == 0) return 0;
-
-    long cash = user->bank.cash;
-    long loan = user->bank.loan;
-
-    AssetPoint reversed[ACCOUNT_STATS_MAX_TX];
-    int rev_count = 0;
-
-    for (int idx = row_count - 1; idx >= 0; --idx) {
-        AccountTxRow *row = &rows[idx];
-        long deposit = row->balance;
-        long total = deposit + cash - loan;
-        if (rev_count < ACCOUNT_STATS_MAX_TX) {
-            reversed[rev_count].timestamp = row->ts;
-            reversed[rev_count].total_asset = total;
-            rev_count++;
-        }
-
-        if (account_reason_matches(row->reason, "DEPOSIT_FROM_CASH")) {
-            cash += row->amount;
-        } else if (account_reason_matches(row->reason, "WITHDRAW_TO_CASH")) {
-            cash += row->amount;
-        } else if (account_reason_matches(row->reason, "LOAN_REPAY")) {
-            long delta = -(long)row->amount;
-            cash += delta;
-            loan += delta;
-        } else if (account_reason_matches(row->reason, "LOAN_TAKEN") ||
-                   account_reason_matches(row->reason, "LOAN")) {
-            cash -= row->amount;
-            loan -= row->amount;
-        }
-    }
-
-    if (rev_count == 0) return 0;
-
-    int copy = rev_count < max_points ? rev_count : max_points;
-    for (int i = 0; i < copy; ++i) {
-        points[i] = reversed[copy - 1 - i];
-    }
-    return copy;
-}
-
-static void handle_account_statistics(User *user) {
-    if (!user) return;
-
-    int height = LINES - 6;
-    if (height < 12) height = 12;
-    if (height > LINES - 2) height = LINES - 2;
-    int width = COLS - 8;
-    if (width < 48) width = 48;
-    if (width > COLS - 2) width = COLS - 2;
-
-    int starty = (LINES - height) / 2;
-    int startx = (COLS - width) / 2;
-
-    WINDOW *win = tui_common_create_box(height, width, starty, startx,
-                                        "Account Statistics (q to close)");
-    if (!win) return;
-    keypad(win, TRUE);
-
-    AssetPoint points[ACCOUNT_STATS_MAX_TX];
-    int point_count = collect_asset_points(user, points, ACCOUNT_STATS_MAX_TX);
-
-    if (point_count == 0) {
-        mvwprintw(win, 2, 2, "No transaction history to chart.");
-        mvwprintw(win, 3, 2, "Complete missions or trade to build stats.");
-    } else {
-        int usable_rows = height - 5;
-        if (usable_rows < 1) usable_rows = 1;
-        int start_idx = point_count > usable_rows ? point_count - usable_rows : 0;
-
-        long min_total = points[start_idx].total_asset;
-        long max_total = points[start_idx].total_asset;
-        for (int i = start_idx; i < point_count; ++i) {
-            if (points[i].total_asset < min_total) min_total = points[i].total_asset;
-            if (points[i].total_asset > max_total) max_total = points[i].total_asset;
-        }
-        long range = max_total - min_total;
-        if (range <= 0) range = 1;
-
-        int label_width = 14;
-        int bar_col = 2 + label_width + 1;
-        int bar_width = width - bar_col - 12;
-        if (bar_width < 10) bar_width = 10;
-
-        int row = 2;
-        for (int i = start_idx; i < point_count && row < height - 3; ++i, ++row) {
-            char timebuf[32];
-            if (points[i].timestamp > 0) {
-                time_t tt = (time_t)points[i].timestamp;
-                struct tm *tm = localtime(&tt);
-                if (tm) {
-                    strftime(timebuf, sizeof(timebuf), "%m-%d %H:%M", tm);
-                } else {
-                    snprintf(timebuf, sizeof(timebuf), "%ld", points[i].timestamp);
-                }
-            } else {
-                snprintf(timebuf, sizeof(timebuf), "entry %d", i + 1);
-            }
-            mvwprintw(win, row, 2, "%-*s", label_width, timebuf);
-
-            mvwhline(win, row, bar_col, ' ', bar_width);
-            long long scaled = (long long)(points[i].total_asset - min_total) * bar_width;
-            int filled = (int)(scaled / range);
-            if (filled < 0) filled = 0;
-            if (filled > bar_width) filled = bar_width;
-            if (filled > 0) {
-                mvwhline(win, row, bar_col, '#', filled);
-            }
-            mvwprintw(win, row, bar_col + bar_width + 1, "%ld", points[i].total_asset);
-        }
-
-        mvwprintw(win, height - 4, 2, "Newest total: %ld Cr | Peak: %ld Cr | Lowest: %ld Cr",
-                  points[point_count - 1].total_asset, max_total, min_total);
-    }
-
-    mvwprintw(win, height - 2, 2, "Total = deposit + cash - loan. Press q / ESC to close.");
-    wrefresh(win);
-
-    int ch;
-    while ((ch = wgetch(win)) != 'q' && ch != 'Q' && ch != 27) {
-        /* wait */
-    }
-    tui_common_destroy_box(win);
-}
-
 
 static void handle_account_view(User *user) {
     int height = LINES - 4;
     int width = COLS - 6;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2,
-                                        "Account Management (d deposit / b borrow / r repay / w withdraw / t stats / q close)");
+                                        "Account Management (d deposit-from-cash / b borrow / r repay / w withdraw / q close)");
     int running = 1;
     while (running) {
         werase(win);
@@ -853,7 +685,7 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         mvwprintw(win, 4, 2, "Rating: %c", user->bank.rating);
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  t)stats  q)close");
+        mvwprintw(win, 6, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -896,8 +728,6 @@ static void handle_account_view(User *user) {
                 if (ok) user_update_balance(user->name, user->bank.balance);
                 tui_ncurses_toast(ok ? "Processed" : "Transaction failed", 800);
             }
-        } else if (ch == 't' || ch == 'T') {
-            handle_account_statistics(user);
         } else if (ch == 'q' || ch == 27) {
             running = 0;
         }
@@ -1149,7 +979,7 @@ static void handle_class_seats_view(User *user) {
         width,
         3,
         5,
-        "Class Seats (q to close)"
+        "Class Seats (q to close, 10000cr per reservation)"
     );
 
     keypad(win, TRUE);
@@ -1227,6 +1057,7 @@ static void handle_class_seats_view(User *user) {
                 mvwprintw(win, height - 3, 2,
                     "You already reserved seat %d. Cancel it first.", mySeat);
                 wrefresh(win);
+                napms(2000);
                 break;
             }
 
@@ -1236,6 +1067,8 @@ static void handle_class_seats_view(User *user) {
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
+                user->bank.cash += 10000;
+                user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
                 break;
             }
@@ -1243,16 +1076,18 @@ static void handle_class_seats_view(User *user) {
             // == 3) 빈 좌석이면 예약 ==
             if (strlen(g_seats[cursor].name) == 0) {
                 strcpy(g_seats[cursor].name, user->name);
+                user->bank.cash -= 10000;
+                user_update_balance(user->name, user->bank.balance);
                 save_seats_csv();
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                napms(3500);
+                napms(2000);
                 wrefresh(win);
             } else {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d is already reserved!", cursor);
-                napms(3500);
+                napms(2000);
                 wrefresh(win);
             }
 
@@ -1434,6 +1269,7 @@ static void handle_mission_play_typing(User *user, Mission *m) {
                 append_typing_leaderboard(user->name, m->id, wpm, accuracy);
 
                 if (mission_complete(user->name, m->id)) {
+                    user_update_balance(user->name, user->bank.balance);
                     tui_ncurses_toast("Mission complete! Reward granted", 900);
                     mission_load_user(user->name, user);
                 } else {
@@ -1668,6 +1504,7 @@ static void handle_mission_play_math(User *user, Mission *m) {
     wgetch(win);
 
     if (mission_complete(user->name, m->id)) {
+        user_update_balance(user->name, user->bank.balance);
         tui_ncurses_toast("Mission complete! Reward granted", 900);
         mission_load_user(user->name, user);
     } else {
@@ -1694,189 +1531,68 @@ static int get_owned_qty(User *user, const char *symbol) {
     return 0;
 }
 
-/* 선택한 한 종목의 log[] 전체를 그래프(@)로 보여주는 화면 */
-/* log 길이가 화면보다 길면 ← / → 로 스크롤 가능 */
-static void handle_stock_graph_view(const Stock *stock) {
-    if (!stock) {
-        return;
-    }
-    if (stock->log_len <= 0) {
-        tui_ncurses_toast("No history for this stock", 800);
-        return;
-    }
-
-    int height = LINES - 4;
-    int width  = COLS  - 6;
-    if (height < 10) height = LINES;  // 너무 작으면 대충 커버
-    if (width  < 30) width  = COLS;
-
-    char title[80];
-    snprintf(title, sizeof(title), "Graph - %s (log size: %d)", stock->name, stock->log_len);
-
-    WINDOW *win = tui_common_create_box(
-        height,
-        width,
-        2,
-        3,
-        title
-    );
-    if (!win) return;
-
-    keypad(win, TRUE);
-
-    int offset  = 0;   // log[]에서 시작 인덱스
-    int running = 1;
-
-    while (running) {
-        werase(win);
-        box(win, 0, 0);
-
-        /* 상단 정보 */
-        mvwprintw(win, 0, 2, " %s Graph | points=%d ",
-                  stock->name, stock->log_len);
-
-        /* 그래프 그릴 영역 설정 */
-        int plot_top    = 2;
-        int plot_bottom = height - 3;        // 아래 한 줄은 안내용
-        int plot_left   = 2;
-        int plot_right  = width - 3;
-
-        int plot_height = plot_bottom - plot_top + 1;
-        int plot_width  = plot_right - plot_left + 1;
-
-        if (plot_height < 3) plot_height = 3;
-        if (plot_width  < 5) plot_width  = 5;
-
-        int len = stock->log_len;
-
-        /* offset 범위 정리 */
-        if (offset < 0) offset = 0;
-        if (offset > len - 1) offset = len - 1;
-        if (len <= plot_width) {
-            offset = 0;
-        } else {
-            if (offset + plot_width > len) {
-                offset = len - plot_width;
-            }
-        }
-
-        /* 현재 화면에 보여줄 구간의 min/max 찾기 */
-        int window_end = offset + plot_width;
-        if (window_end > len) window_end = len;
-
-        int minv = stock->log[offset];
-        int maxv = stock->log[offset];
-        for (int i = offset + 1; i < window_end; ++i) {
-            if (stock->log[i] < minv) minv = stock->log[i];
-            if (stock->log[i] > maxv) maxv = stock->log[i];
-        }
-        if (maxv == minv) {
-            /* 모두 같은 값이면, 수직 크기 1이라도 나오게 보정 */
-            maxv = minv + 1;
-        }
-
-        /* Y축 눈금 정보 (좌측에 min/max 표시) */
-        mvwprintw(win, plot_top,   1, "%d", maxv);
-        mvwprintw(win, plot_bottom,1, "%d", minv);
-
-        /* 실제 그래프 그리기: 각 x(열)마다 수직 바를 @로 찍는다 */
-        for (int x = 0; x < plot_width; ++x) {
-            int idx = offset + x;
-            if (idx >= len) break;
-
-            int v = stock->log[idx];
-
-            double ratio = (double)(v - minv) / (double)(maxv - minv);
-            if (ratio < 0.0) ratio = 0.0;
-            if (ratio > 1.0) ratio = 1.0;
-
-            int bar_h = (int)(ratio * (plot_height - 1)) + 1; // 최소 1칸은 찍히게
-            if (bar_h > plot_height) bar_h = plot_height;
-
-            int screen_x = plot_left + x;
-            for (int k = 0; k < bar_h; ++k) {
-                int y = plot_bottom - k;
-                if (y < plot_top) break;
-                mvwaddch(win, y, screen_x, '@');
-            }
-        }
-
-        /* 아래쪽 안내 & 현재 구간 표시 */
-        mvwprintw(win, height - 2, 2,
-                  "←/→ scroll  q back  range [%d - %d] / %d",
-                  offset,
-                  window_end - 1,
-                  len);
-
-        wrefresh(win);
-
-        int ch = wgetch(win);
-        if (ch == KEY_LEFT) {
-            /* 왼쪽으로 plot_width/2 만큼 스크롤 */
-            int step = plot_width / 2;
-            if (step < 1) step = 1;
-            offset -= step;
-            if (offset < 0) offset = 0;
-        } else if (ch == KEY_RIGHT) {
-            int step = plot_width / 2;
-            if (step < 1) step = 1;
-            offset += step;
-            if (offset > len - 1) offset = len - 1;
-        } else if (ch == 'q' || ch == 27) {
-            running = 0;
-        }
-    }
-
-    tui_common_destroy_box(win);
-}
-
+// 주식 화면: 리스트 + @ 그래프 + 매수/매도/배당
 static void handle_stocks_view(User *user) {
     Stock stocks[16];
     int count = 0;
 
-    /* 들어올 때 한 번 시간 업데이트 */
-    stock_maybe_update_by_time();
+    // 전체 종목 리스트 가져오기
     if (!stock_list(stocks, &count) || count == 0) {
         tui_ncurses_toast("No stock data", 800);
         return;
     }
 
     int height = LINES - 4;
-    int width  = COLS  - 6;
+    int width  = COLS - 6;
 
     WINDOW *win = tui_common_create_box(
         height,
         width,
         2,
         3,
-        "Stocks (Enter=Buy / s=Sell / d=Dividend / g=Graph / q=Close)"
+        "Stocks (Enter=Buy / s=Sell / d=Dividend / q=Close)"
     );
-    if (!win) return;
 
     keypad(win, TRUE);
     int highlight = 0;
     int running   = 1;
 
     while (running) {
-        /* 1시간 지났으면 내부에서 주가 변경 (CSV는 안 건드림) */
-        stock_maybe_update_by_time();
-        stock_list(stocks, &count);
-
         werase(win);
         box(win, 0, 0);
 
-        /* 상단 타이틀 + 잔액 표시 */
+        // 상단 타이틀 + 잔액
         mvwprintw(win, 0, 2,
                   " Stocks - Balance %dCr ",
                   user->bank.balance);
 
-        /* 헤더 */
+        // 헤더
         mvwprintw(win, 1, 2,
                   "%-3s %-8s %-7s %-5s %-6s %-4s %-20s",
                   "ID", "NAME", "PRICE", "OWN", "DIV", "Δ", "NEWS");
 
-        int visible_rows = height - 4; // 위에 2줄 + 아래 안내 한 줄 빼고
+        int visible_rows = height - 4; // 위 2줄 + 아래 안내 줄 빼고
 
+        // 그래프용 최대 가격 찾기
+        int max_price = 1;
+        for (int i = 0; i < count; ++i) {
+            if (stocks[i].current_price > max_price) {
+                max_price = stocks[i].current_price;
+            }
+        }
+
+        // 그래프 영역 설정 (오른쪽에 세로 @ 막대)
+        int graph_width  = count;              // 종목 개수만큼 기둥
+        if (graph_width > width - 10) {
+            graph_width = width - 10;         // 너무 넓어지지 않게 안전장치
+        }
+        int graph_x      = width - graph_width - 2; // 박스 오른쪽에서 약간 여유
+        int graph_bottom = height - 2;
+        int graph_top    = 3;
+        int graph_height = graph_bottom - graph_top + 1;
+        if (graph_height < 3) graph_height = 3;
+
+        // 텍스트 리스트 출력
         for (int i = 0; i < count && i < visible_rows; ++i) {
             int row    = 2 + i;
             int owned  = get_owned_qty(user, stocks[i].name);
@@ -1916,45 +1632,55 @@ static void handle_stocks_view(User *user) {
             }
         }
 
-        /* 아래쪽 조작 안내 (여기를 '버튼' 느낌으로 써도 됨) */
+        // @ 그래프 그리기 (아래에서 위로 쌓기)
+        for (int i = 0; i < count && i < graph_width; ++i) {
+            double ratio = (double)stocks[i].current_price / (double)max_price;
+            if (ratio < 0.1) ratio = 0.1;            // 최소 높이 보장
+            int bar_h = (int)(ratio * graph_height);
+            if (bar_h < 1) bar_h = 1;
+            if (bar_h > graph_height) bar_h = graph_height;
+
+            int x = graph_x + i;
+            for (int k = 0; k < bar_h; ++k) {
+                int y = graph_bottom - k;
+                if (y < graph_top) break;
+                mvwaddch(win, y, x, '@');
+            }
+        }
+
+        // 아래쪽 조작 안내
         mvwprintw(win, height - 2, 2,
-                  "↑↓ move  Enter buy  s sell  d dividend  g graph  q close");
+                  "↑↓ move  Enter buy  s sell  d dividend  q close");
 
         wrefresh(win);
 
         int ch = wgetch(win);
 
         if (ch == KEY_UP) {
-            if (count > 0) {
-                highlight = (highlight - 1 + count) % count;
-            }
+            highlight = (highlight - 1 + count) % count;
         } else if (ch == KEY_DOWN) {
-            if (count > 0) {
-                highlight = (highlight + 1) % count;
-            }
+            highlight = (highlight + 1) % count;
         } else if (ch == '\n' || ch == '\r') {
-            /* 매수: 선택 종목 1주 */
-            if (count <= 0) continue;
+            // 매수: 선택 종목 1주
             Stock *s = &stocks[highlight];
-
             if (stock_deal(user->name, s->name, 1, 1)) {
                 tui_ncurses_toast("Buy complete", 800);
-                /* stock_maybe_update_by_time() + stock_list()에서 가격 갱신 */
+                // 가격/previous 갱신
+                stock_list(stocks, &count);
             } else {
                 tui_ncurses_toast("Buy failed", 800);
             }
         } else if (ch == 's' || ch == 'S') {
-            /* 매도: 선택 종목 1주 */
-            if (count <= 0) continue;
+            // 매도: 선택 종목 1주
             Stock *s = &stocks[highlight];
-
             if (stock_deal(user->name, s->name, 1, 0)) {
                 tui_ncurses_toast("Sell complete", 800);
+                stock_list(stocks, &count);
             } else {
                 tui_ncurses_toast("Not enough shares", 800);
             }
         } else if (ch == 'd' || ch == 'D') {
-            /* 배당 */
+            // 배당: 이 유저가 가진 모든 주식에 배당 지급
             int earned = stock_pay_dividends(user);
             if (earned > 0) {
                 char msg[64];
@@ -1963,13 +1689,6 @@ static void handle_stocks_view(User *user) {
                 tui_ncurses_toast(msg, 800);
             } else {
                 tui_ncurses_toast("No dividends", 800);
-            }
-        } else if (ch == 'g' || ch == 'G') {
-            /* 🔹 현재 선택된 종목의 그래프 화면으로 진입 */
-            if (count > 0) {
-                Stock s = stocks[highlight];       // 복사해서 넘김(log 포함)
-                handle_stock_graph_view(&s);
-                /* 돌아오면 다시 while 루프 계속 → 리스트 화면 유지 */
             }
         } else if (ch == 'q' || ch == 27) {
             running = 0;

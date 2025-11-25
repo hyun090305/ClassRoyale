@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #include "../../include/domain/user.h"
+#include "../../include/domain/economy.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
 
@@ -114,6 +116,22 @@ static User *prompt_login(void) {
         return NULL;
     }
     User *user = user_lookup(username);
+    /* Apply accumulated hourly interest since last_interest_ts */
+    if (user) {
+        long now = (long)time(NULL);
+        if (user->bank.last_interest_ts == 0) {
+            user->bank.last_interest_ts = now; /* initialize without applying retroactive interest */
+        } else {
+            long diff = now - user->bank.last_interest_ts;
+            int hours = (int)(diff / 3600);
+            if (hours > 0) {
+                econ_apply_hourly_interest(user, hours);
+                user->bank.last_interest_ts = now;
+                /* persist updated balance/interest timestamp */
+                user_update_balance(user->name, user->bank.balance);
+            }
+        }
+    }
     tui_common_destroy_box(form);
     return user;
 }
@@ -165,8 +183,9 @@ static void prompt_register(void) {
         }
         FILE *fp1 = fopen("data/accounts.csv", "a");
         if (fp1) {
-            /* persist format: name,balance,rating,cash,loan */
-            fprintf(fp1, "\n%s,%d,%c,%d,%d", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan);
+            /* persist format: name,balance,rating,cash,loan,last_interest_ts,log */
+            long ts = (long)time(NULL);
+            fprintf(fp1, "\n%s,%d,%c,%d,%d,%ld,", username, newbie.bank.balance, newbie.bank.rating, newbie.bank.cash, newbie.bank.loan, ts);
             fclose(fp1);
         }
     } else {
