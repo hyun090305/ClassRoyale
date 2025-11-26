@@ -557,9 +557,9 @@ static void handle_shop_view(User *user) {
         box(win, 0, 0);
 
         mvwprintw(win, 0, 2,
-                  " %s Shop - Balance %dCr ",
+                  " %s Shop - Cash %dCr ",
                   shop->name,
-                  user->bank.balance);
+                  user->bank.cash);
 
         /* ------------------------- 인덱스 설계 ------------------------- */
         int idx_stock_btn = shop->item_count;        // [ Stocks ]
@@ -1393,7 +1393,6 @@ static void handle_class_seats_view(User *user) {
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
                 user->bank.cash += 10000;
-                user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
                 napms(500);
                 break;
@@ -1406,8 +1405,7 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                user->bank.cash -= 10000;
-                user_update_balance(user->name, user->bank.balance);
+                user->bank.cash -= 10000;  
                 wrefresh(win);
                 napms(500);
             } else {
@@ -1425,7 +1423,7 @@ static void handle_class_seats_view(User *user) {
             running = 0;
             break;
         }
-    }
+    }c
 
     tui_common_destroy_box(win);
 }
