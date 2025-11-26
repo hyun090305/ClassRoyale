@@ -130,7 +130,7 @@ static void handle_broadcast(void) {
     int height = 8;
     int width = 60;
     WINDOW *win = tui_common_create_box(height, width, (LINES - height) / 2, (COLS - width) / 2, "Send Message");
-    char message[100];
+    char message[100]={};
     if (tui_ncurses_prompt_line(win, 2, 2, "Message to send", message, sizeof(message), 0) && *message) {
         admin_message_all(message);
         tui_ncurses_toast("Notified students", 900);

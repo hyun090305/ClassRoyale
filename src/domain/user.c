@@ -320,13 +320,17 @@ int user_update_balance(const char *username, int new_balance) {
         /* CSV format (new): name,balance,cash,loan,last_interest_ts,log
          * For compatibility the loader accepts old rows that included a rating column.
          */
+        /* Do NOT persist the in-memory bank.log into accounts.csv to avoid
+         * corrupting the CSV when log contains commas/newlines. The full
+         * transaction history is stored under data/txs/<username>.csv.
+         */
         fprintf(fp, "%s,%d,%d,%d,%ld,%s\n",
-                g_users[i].name,
-                g_users[i].bank.balance,
-                g_users[i].bank.cash,
-                g_users[i].bank.loan,
-                g_users[i].bank.last_interest_ts,
-                g_users[i].bank.log[0] ? g_users[i].bank.log : "");
+            g_users[i].name,
+            g_users[i].bank.balance,
+            g_users[i].bank.cash,
+            g_users[i].bank.loan,
+            g_users[i].bank.last_interest_ts,
+            "");
     }
     fclose(fp);
     return found;

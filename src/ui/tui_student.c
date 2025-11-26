@@ -557,9 +557,9 @@ static void handle_shop_view(User *user) {
         box(win, 0, 0);
 
         mvwprintw(win, 0, 2,
-                  " %s Shop - Balance %dCr ",
+                  " %s Shop - Cash %dCr ",
                   shop->name,
-                  user->bank.balance);
+                  user->bank.cash);
 
         /* ------------------------- 인덱스 설계 ------------------------- */
         int idx_stock_btn = shop->item_count;        // [ Stocks ]
@@ -919,7 +919,7 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         /* rating removed */
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
+        mvwprintw(win, 5, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -950,8 +950,6 @@ static void handle_account_view(User *user) {
                 } else if (ch == 'w') {
                     /* withdraw from deposit to cash */
                     ok = account_withdraw_to_cash(user, amount, "WITHDRAW_TO_CASH");
-                    /* take loan: loan += amount, cash += amount */
-                    ok = account_take_loan(user, amount, "LOAN_TAKEN");
                 } else if (ch == 'r') {
                     /* repay loan: loan -= amount, cash -= amount */
                     ok = account_repay_loan(user, amount, "LOAN_REPAY");
@@ -1390,12 +1388,11 @@ static void handle_class_seats_view(User *user) {
 
             // == 2) 본인이 자기 좌석을 선택한 경우 → 해제 ==
             if (mySeat == cursor) {
-                g_seats[cursor].name[0] = '\0';
+                g_seats[cursor].name[0] = '\0';    
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
                 user->bank.cash += 10000;
-                user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
                 napms(500);
                 break;
@@ -1408,8 +1405,7 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                user->bank.cash -= 10000;
-                user_update_balance(user->name, user->bank.balance);
+                user->bank.cash -= 10000;  
                 wrefresh(win);
                 napms(500);
             } else {
