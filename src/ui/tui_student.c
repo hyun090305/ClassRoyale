@@ -557,9 +557,9 @@ static void handle_shop_view(User *user) {
         box(win, 0, 0);
 
         mvwprintw(win, 0, 2,
-                  " %s Shop - Balance %dCr ",
+                  " %s Shop - Cash %dCr ",
                   shop->name,
-                  user->bank.balance);
+                  user->bank.cash);
 
         /* ------------------------- 인덱스 설계 ------------------------- */
         int idx_stock_btn = shop->item_count;        // [ Stocks ]
@@ -919,7 +919,7 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         /* rating removed */
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
+        mvwprintw(win, 5, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -950,8 +950,6 @@ static void handle_account_view(User *user) {
                 } else if (ch == 'w') {
                     /* withdraw from deposit to cash */
                     ok = account_withdraw_to_cash(user, amount, "WITHDRAW_TO_CASH");
-                    /* take loan: loan += amount, cash += amount */
-                    ok = account_take_loan(user, amount, "LOAN_TAKEN");
                 } else if (ch == 'r') {
                     /* repay loan: loan -= amount, cash -= amount */
                     ok = account_repay_loan(user, amount, "LOAN_REPAY");
@@ -1390,12 +1388,11 @@ static void handle_class_seats_view(User *user) {
 
             // == 2) 본인이 자기 좌석을 선택한 경우 → 해제 ==
             if (mySeat == cursor) {
-                g_seats[cursor].name[0] = '\0';
+                g_seats[cursor].name[0] = '\0';    
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
                 user->bank.cash += 10000;
-                user_update_balance(user->name, user->bank.balance);
                 wrefresh(win);
                 napms(500);
                 break;
@@ -1408,8 +1405,7 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                user->bank.cash -= 10000;
-                user_update_balance(user->name, user->bank.balance);
+                user->bank.cash -= 10000;  
                 wrefresh(win);
                 napms(500);
             } else {
@@ -1958,13 +1954,55 @@ static void handle_stock_graph_view(const Stock *stock) {
 
             
             int screen_x = plot_left + x;
-            int y = plot_bottom - (bar_h - 1);
-            if (y < plot_top) {
-                y = plot_top;
-            }
-            mvwaddch(win, y, screen_x, '*');
-            }
+            /* --- 스무스 라인 그래프: 점과 점 사이 채우기 --- */
+            int prev_x = -1;
+            int prev_y = -1;
 
+            for (int x = 0; x < plot_width; ++x) {
+                int idx = offset + x;
+                if (idx >= len) break;
+
+                int v = stock->log[idx];
+                double ratio = (double)(v - minv) / (double)(maxv - minv);
+                if (ratio < 0) ratio = 0;
+                if (ratio > 1) ratio = 1;
+
+                int bar_h = (int)(ratio * (plot_height - 1)) + 1;
+                if (bar_h > plot_height) bar_h = plot_height;
+
+                int y = plot_bottom - (bar_h - 1);
+                if (y < plot_top) y = plot_top;
+
+                int sx = plot_left + x;
+
+                /* 현재 점 찍기 */
+                mvwaddch(win, y, sx, '*');
+
+                /* 이전 점과 연결해주기 */
+                if (prev_x >= 0) {
+                    int dx = sx - prev_x;
+                    int dy = y  - prev_y;
+
+                    int steps = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+                    if (steps == 0) steps = 1;
+
+                    double stepx = dx / (double)steps;
+                    double stepy = dy / (double)steps;
+
+                    double cx = prev_x;
+                    double cy = prev_y;
+
+                    for (int s = 1; s < steps; ++s) {
+                        cx += stepx;
+                        cy += stepy;
+                        mvwaddch(win, (int)(cy + 0.5), (int)(cx + 0.5), '*');
+                    }
+                }
+
+                prev_x = sx;
+                prev_y = y;
+}
+        }
             // 막대그래프
         //     for (int k = 0; k < bar_h; ++k) {
         //         int y = plot_bottom - k;
