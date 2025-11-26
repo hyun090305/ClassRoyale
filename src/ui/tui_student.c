@@ -1321,6 +1321,7 @@ void save_seats_csv(void) {
 
 /* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
+    load_seats_csv();
     int height = LINES - 6;
     int width  = COLS - 10;
 
