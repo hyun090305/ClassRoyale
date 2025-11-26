@@ -1423,7 +1423,7 @@ static void handle_class_seats_view(User *user) {
             running = 0;
             break;
         }
-    }c
+    }
 
     tui_common_destroy_box(win);
 }
