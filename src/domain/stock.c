@@ -15,12 +15,17 @@
 
 #define MAX_STOCKS 16
 #define STOCK_STEP_SECONDS 600
-
+// 최대 거래 내역 개수
 static Stock g_stocks[MAX_STOCKS];
+// 현재 등록된 주식 수
 static int   g_stock_count  = 0;
+// 시드 초기화 여부
 static int   g_seeded       = 0;
+// 마지막으로 시간 기반 업데이트가 적용된 시간
 static time_t g_start_time   = 0;
+// 누적 적용된 시간 단위 (몇 시간치 업데이트가 적용되었는지)
 static int    g_applied_hours = 0;
+// 현재 화면에 보이는 주식 개수
 static int    g_visible_len[MAX_STOCKS];
 
 /* -------------------------------------------------------------------------- */

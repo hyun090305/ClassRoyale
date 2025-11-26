@@ -14,8 +14,11 @@
 #include "../../include/domain/mission.h"
 #include "../../include/core/csv.h"
 
+// 최대 학생 수
 static User g_users[MAX_STUDENTS];
+// 현재 등록된 학생 수
 static size_t g_user_count = 0;
+// 시드 초기화 여부
 static int g_seeded = 0;
 
 /* 함수 목적: Item 구조체 복사

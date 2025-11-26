@@ -12,8 +12,9 @@
 #include "../../include/ui/tui_student.h"
 #include "../../include/core/csv.h"
 #include <time.h>
-
+// 최대 상점 아이템 수
 static Shop g_shop;
+// 시드 초기화 여부
 static int g_shop_seeded = 0;
 
 /* 함수 목적: 기본 설정 초기화
