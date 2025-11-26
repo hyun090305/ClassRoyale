@@ -1,10 +1,7 @@
 # items.csv (placeholder)
-baseball,0,150
-note,0,100
-pencil,2,50
-<<<<<<< HEAD
->>>>>>> 225f26e93c3edb80f9c34a4e0ae890054cfd1a29
-coupon,0,300
-=======
-coupon,2,300
->>>>>>> fa6a1767db37a59a3bb381ba872d24b022cf06c0
+baseball,50,150
+note,100,100
+pencil,200,50
+eraser,150,75
+ohtani doll,5,2000
+coupon,18,300

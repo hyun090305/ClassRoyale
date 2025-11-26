@@ -141,6 +141,8 @@ int shop_buy(const char *username, const Item *item, int qty) {
         char path[512];
         snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
         csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason_safe[0] ? reason_safe : "", -total_cost, user->bank.balance);
+        /* persist accounts.csv so cash change is saved */
+        user_update_balance(user->name, user->bank.balance);
     }
     if (store_item->stock >= 0) {
         store_item->stock -= qty;
