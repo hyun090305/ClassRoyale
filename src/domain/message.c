@@ -1,8 +1,10 @@
 /*
  * 파일 목적: message 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 이현준
+ * 작성일: 2025-11-22
+ * 수정 이력: 
+ * 이현준 - 메세지 기능 추가 2025-11-22
+ * 이현준 - 메시지 view 기능 강화 2025-11-25
  */
 #include "../../include/domain/message.h"
 
@@ -17,9 +19,9 @@
 
 #define MESSAGE_DIR "data/messages"
 
-/* 함수 목적: sanitize_text 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 이스케이프 문자들을 띄어쓰기로 변환
  * 매개변수: src, dst, dst_len
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void sanitize_text(const char *src, char *dst, size_t dst_len) {
     if (!dst || dst_len == 0) return;
@@ -36,9 +38,9 @@ static void sanitize_text(const char *src, char *dst, size_t dst_len) {
     dst[di] = '\0';
 }
 
-/* 함수 목적: format_relative_time 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 메시지 작성 시간을 현재와 비교하여 출력
  * 매개변수: ts, buf, buflen
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void format_relative_time(long ts, char *buf, size_t buflen) {
     if (!buf || buflen == 0) return;
@@ -72,17 +74,17 @@ static void format_relative_time(long ts, char *buf, size_t buflen) {
     }
 }
 
-/* 함수 목적: ensure_user_exists 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저 존재 여부를 확인
  * 매개변수: username
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 존재 여부
  */
 static int ensure_user_exists(const char *username) {
     return username && *username && user_lookup(username) != NULL;
 }
 
-/* 함수 목적: message_send 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 메세지 보내기
  * 매개변수: from, to, body
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int message_send(const char *from, const char *to, const char *body) {
     if (!from || !to || !body) return 0;
@@ -121,9 +123,9 @@ int message_send(const char *from, const char *to, const char *body) {
     return 1;
 }
 
-/* 함수 목적: format_feed_line 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 타임스탬프를 읽기 쉬운 문자열로 변환
  * 매개변수: dst, dst_len, ts, dir, other, message
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 기록된 문자 수
  */
 static int format_feed_line(char *dst, size_t dst_len, long ts, char dir, const char *other, const char *message) {
     if (!dst || dst_len == 0) return 0;
@@ -139,9 +141,9 @@ static int format_feed_line(char *dst, size_t dst_len, long ts, char dir, const 
     return wrote;
 }
 
-/* 함수 목적: parse_line 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 라인을 컴마 단위로 쪼갬
  * 매개변수: line, out_ts, out_dir, other, other_len, message, msg_len
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 static int parse_line(char *line, long *out_ts, char *out_dir, char *other, size_t other_len, char *message, size_t msg_len) {
     if (!line) return 0;
@@ -164,9 +166,9 @@ static int parse_line(char *line, long *out_ts, char *out_dir, char *other, size
     return 1;
 }
 
-/* 함수 목적: message_recent_to_buf 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 최근 메시지들을 읽기
  * 매개변수: username, limit, buf, buflen
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 쓰여진 바이트를 가리키는 인덱스
  */
 int message_recent_to_buf(const char *username, int limit, char *buf, size_t buflen) {
     if (!username || !buf || buflen == 0) return -1;
@@ -300,9 +302,9 @@ int message_thread_to_buf(const char *username, const char *peer, int limit, cha
     return (int)outpos;
 }
 
-/* 함수 목적: message_list_partners 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 친구에게 받은 메시지 가져오기
  * 매개변수: username, partners[][50], max_partners
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 가져온 메시지 수
  */
 int message_list_partners(const char *username, char partners[][50], int max_partners) {
     if (!username || !partners || max_partners <= 0) return 0;
