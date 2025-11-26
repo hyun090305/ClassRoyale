@@ -19,13 +19,11 @@
 
 #include "../../include/domain/account.h"
 #include "../../include/domain/admin.h"
-#include "../../include/domain/auction.h"
 #include "../../include/domain/economy.h"
 #include "../../include/domain/mission.h"
 #include "../../include/domain/shop.h"
 #include "../../include/domain/stock.h"
 #include "../../include/domain/user.h"
-#include "../../include/ui/tui_auction.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
 #include "../../include/ui/tui_stock.h"
