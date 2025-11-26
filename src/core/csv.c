@@ -69,6 +69,7 @@ int csv_read_last_lines(const char *path, int max_lines, char **out_buf, size_t 
             lines[count++] = strdup(tmp);
         } else {
             free(lines[0]);
+            lines[0] = NULL;
             memmove(lines, lines+1, (count-1)*sizeof(char*));
             lines[count-1] = strdup(tmp);
         }
@@ -84,7 +85,10 @@ int csv_read_last_lines(const char *path, int max_lines, char **out_buf, size_t 
     }
     char *buf = malloc(cap + 1);
     if (!buf) {
-        for (int i = 0; i < count; ++i) free(lines[i]);
+        for (int i = 0; i < count; ++i) {
+            free(lines[i]);
+            lines[i] = NULL;
+        }
         return 0;
     }
     buf[0] = '\0';
@@ -94,6 +98,7 @@ int csv_read_last_lines(const char *path, int max_lines, char **out_buf, size_t 
         size_t L = strlen(buf);
         if (L == 0 || buf[L-1] != '\n') strcat(buf, "\n");
         free(lines[i]);
+        lines[i] = NULL;
     }
 
     *out_buf = buf;

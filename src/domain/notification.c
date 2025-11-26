@@ -147,6 +147,7 @@ int notify_recent_to_buf(const char *username, int limit, char *buf, size_t bufl
     }
 
     free(tmp);
+    tmp = NULL;
     /* ensure NUL termination */
     if (outpos >= buflen) outpos = buflen - 1;
     buf[outpos] = '\0';

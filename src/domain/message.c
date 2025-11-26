@@ -218,6 +218,7 @@ int message_recent_to_buf(const char *username, int limit, char *buf, size_t buf
     if (outpos >= buflen) outpos = buflen - 1;
     buf[outpos] = '\0';
     free(tmp);
+    tmp = NULL;
     return (int)outpos;
 }
 

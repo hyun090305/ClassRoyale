@@ -10,7 +10,7 @@
 
 #include "../../include/domain/account.h"
 #include "../../include/domain/user.h"
-#include <time.h>  // 🔹 시간 사용
+#include <time.h>
 #include <stdlib.h>
 
 #define MAX_STOCKS 16

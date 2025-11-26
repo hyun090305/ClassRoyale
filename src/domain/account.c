@@ -173,6 +173,7 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
     }
 
     free(tmp);
+    tmp = NULL;
     if (outpos >= buflen) outpos = buflen - 1;
     buf[outpos] = '\0';
     return (int)outpos;
