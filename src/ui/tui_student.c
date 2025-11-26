@@ -1278,19 +1278,38 @@ typedef struct {
 static Seat g_seats[31]; // 1~30까지 사용
 
 static void load_seats_csv(void) {
-    FILE *fp = fopen("seats.csv", "r");
+    FILE *fp = fopen("data/seats.csv", "r");
     if (!fp) return;
 
     int num;
-    char name[64];
+    char buf[128];
 
-    while (fscanf(fp, "%d,%63[^\n]\n", &num, name) != EOF) {
+    for (int i = 1; i <= 30; i++) {
+        g_seats[i].name[0] = '\0';
+    }
+
+    while (fgets(buf, sizeof(buf), fp)) {
+        // 줄에서 번호와 이름 분리
+        char *comma = strchr(buf, ',');
+        if (!comma) continue;
+
+        *comma = '\0';
+        num = atoi(buf);
+
+        char *name = comma + 1;
+
+        // 앞뒤 공백 제거
+        name[strcspn(name, "\r\n")] = '\0';
+
         strcpy(g_seats[num].name, name);
     }
+
     fclose(fp);
 }
+
+
 void save_seats_csv(void) {
-    FILE *fp = fopen("seats.csv", "w");
+    FILE *fp = fopen("data/seats.csv", "w");
     if (!fp) return;
 
     for (int i = 1; i <= 30; i++) {
@@ -1302,6 +1321,7 @@ void save_seats_csv(void) {
 
 /* --- Class seats view (stub) --- */
 static void handle_class_seats_view(User *user) {
+    load_seats_csv();
     int height = LINES - 6;
     int width  = COLS - 10;
 
@@ -2361,4 +2381,3 @@ static void handle_stocks_view(User *user) {
 
     tui_common_destroy_box(win);
 }
-
