@@ -48,8 +48,6 @@ int csv_append_row(const char *path, const char *fmt, ...) {
     return 1;
 }
 
-/* Read file fully and return last max_lines as a single newline-separated buffer.
- * Caller must free *out_buf. Returns 1 on success, 0 on error. */
 /* 함수 목적: csv_read_last_lines 함수는 핵심 유틸리티 및 데이터 처리 구현에서 필요한 동작을 수행합니다.
  * 매개변수: path, max_lines, out_buf, out_len
  * 반환 값: 함수 수행 결과를 나타냅니다.
