@@ -16,7 +16,7 @@ static void ensure_seeded(void) {
     }
 
     memset(&g_shop, 0, sizeof(g_shop));
-    snprintf(g_shop.name, sizeof(g_shop.name), "%s", "Class Shop");
+    snprintf(g_shop.name, sizeof(g_shop.name), "%s", "Class");
 
     FILE *fp = fopen("data/items.csv", "r");
     if (!fp) {

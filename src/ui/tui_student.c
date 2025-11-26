@@ -1390,7 +1390,7 @@ static void handle_class_seats_view(User *user) {
 
             // == 2) 본인이 자기 좌석을 선택한 경우 → 해제 ==
             if (mySeat == cursor) {
-                g_seats[cursor].name[0] = '\0';
+                g_seats[cursor].name[0] = '\0';    
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
