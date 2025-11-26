@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: tui_common 관련 터미널 UI 로직 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/ui/tui_common.h"
 
 #include <string.h>
@@ -15,6 +21,10 @@ WINDOW *tui_common_create_box(int height, int width, int y, int x, const char *t
     return win;
 }
 
+/* 함수 목적: tui_common_destroy_box 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_common_destroy_box(WINDOW *win) {
     if (!win) {
         return;
@@ -32,6 +42,10 @@ void tui_common_destroy_box(WINDOW *win) {
     delwin(win);
 }
 
+/* 함수 목적: tui_common_draw_menu 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win, entries, entry_count, highlight
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_common_draw_menu(WINDOW *win, const char **entries, int entry_count, int highlight) {
     if (!win || !entries) {
         return;
@@ -48,6 +62,10 @@ void tui_common_draw_menu(WINDOW *win, const char **entries, int entry_count, in
     wrefresh(win);
 }
 
+/* 함수 목적: tui_common_draw_progress 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win, row, col, width, percent
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_common_draw_progress(WINDOW *win, int row, int col, int width, int percent) {
     if (!win || width <= 0) {
         return;
@@ -72,6 +90,10 @@ void tui_common_draw_progress(WINDOW *win, int row, int col, int width, int perc
     wrefresh(win);
 }
 
+/* 함수 목적: tui_common_draw_help 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: text
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_common_draw_help(const char *text) {
     int row = LINES - 1;
     attron(A_REVERSE);
@@ -83,6 +105,10 @@ void tui_common_draw_help(const char *text) {
     refresh();
 }
 
+/* 함수 목적: tui_common_print_multiline 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win, row, col, lines, line_count
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_common_print_multiline(WINDOW *win, int row, int col, const char *const *lines, size_t line_count) {
     if (!win || !lines) {
         return;

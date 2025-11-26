@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: auction 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/auction.h"
 
 #include <stdio.h>
@@ -30,6 +36,10 @@ static Item *find_or_create_user_item(User *user, const char *name) {
     return NULL;
 }
 
+/* 함수 목적: ensure_seeded 함수는 auction 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void ensure_seeded(void) {
     if (g_seeded) {
         return;
@@ -47,6 +57,10 @@ static void ensure_seeded(void) {
     g_seeded = 1;
 }
 
+/* 함수 목적: auction_list 함수는 auction 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out_items, out_n
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int auction_list(Item *out_items, int *out_n) {
     ensure_seeded();
     if (!out_items || !out_n) {
@@ -59,6 +73,10 @@ int auction_list(Item *out_items, int *out_n) {
     return 1;
 }
 
+/* 함수 목적: auction_deal 함수는 auction 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, item, bid_price, buyout
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int auction_deal(const char *username, const Item *item, int bid_price, int buyout) {
     ensure_seeded();
     if (!username || !item) {

@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: tui 관련 터미널 UI 로직 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/ui/tui.h"
 
 #include <stdlib.h>
@@ -10,6 +16,10 @@
 #include "../../include/ui/tui_student.h"
 #include "../../include/ui/tui_teacher.h"
 
+/* 함수 목적: tui_run 함수는 tui 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_run() {
     tui_ncurses_init();
     srand((unsigned)time(NULL));

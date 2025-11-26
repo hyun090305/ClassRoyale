@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: tui_ncurses 관련 터미널 UI 로직 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/ui/tui_ncurses.h"
 
 #include <locale.h>
@@ -7,6 +13,10 @@
 
 static WINDOW *g_main_window = NULL;
 
+/* 함수 목적: tui_ncurses_init 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_ncurses_init(void) {
     if (g_main_window) {
         return;
@@ -25,6 +35,10 @@ void tui_ncurses_init(void) {
     refresh();
 }
 
+/* 함수 목적: tui_ncurses_shutdown 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_ncurses_shutdown(void) {
     if (!g_main_window) {
         return;
@@ -33,6 +47,10 @@ void tui_ncurses_shutdown(void) {
     g_main_window = NULL;
 }
 
+/* 함수 목적: tui_ncurses_draw_logo 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win, y, x
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_ncurses_draw_logo(WINDOW *win, int y, int x) {
     if (!win) {
 
@@ -57,6 +75,10 @@ void tui_ncurses_draw_logo(WINDOW *win, int y, int x) {
     wrefresh(win);
 }
 
+/* 함수 목적: tui_ncurses_draw_status 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: message
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_ncurses_draw_status(const char *message) {
     if (!message) {
         message = "";
@@ -69,6 +91,10 @@ void tui_ncurses_draw_status(const char *message) {
     refresh();
 }
 
+/* 함수 목적: tui_ncurses_prompt_line 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: win, row, col, label, buffer, len, hidden
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, char *buffer, size_t len, int hidden) {
     if (!win || !buffer || len == 0) {
         return 0;
@@ -132,6 +158,10 @@ int tui_ncurses_prompt_line(WINDOW *win, int row, int col, const char *label, ch
     return 1;
 }
 
+/* 함수 목적: tui_ncurses_prompt_number 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: context, label, out_value
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int tui_ncurses_prompt_number(WINDOW *context, const char *label, int *out_value) {
     if (!out_value) {
         return 0;
@@ -148,6 +178,10 @@ int tui_ncurses_prompt_number(WINDOW *context, const char *label, int *out_value
     return 1;
 }
 
+/* 함수 목적: tui_ncurses_toast 함수는 tui_ncurses 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: message, delay_ms
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_ncurses_toast(const char *message, int delay_ms) {
     tui_ncurses_draw_status(message);
     if (delay_ms > 0) {

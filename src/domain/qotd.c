@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: qotd 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/qotd.h"
 #include "../../include/core/csv.h"
 
@@ -11,6 +17,10 @@
  * Fields will have ',' and newlines replaced by spaces to keep format simple.
  */
 
+/* 함수 목적: sanitize_field 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: in, out, out_sz
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void sanitize_field(const char *in, char *out, size_t out_sz) {
     if (!in || !out || out_sz == 0) return;
     size_t oi = 0;
@@ -22,6 +32,10 @@ static void sanitize_field(const char *in, char *out, size_t out_sz) {
     out[oi] = '\0';
 }
 
+/* 함수 목적: qotd_ensure_storage 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int qotd_ensure_storage(void) {
     /* ensure data directory exists; file will be created when appending */
     csv_ensure_dir("data");
@@ -31,6 +45,10 @@ int qotd_ensure_storage(void) {
     return 1;
 }
 
+/* 함수 목적: qotd_record_entry 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: date, user, question, status
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int qotd_record_entry(const char *date, const char *user, const char *question, const char *status) {
     if (!date || !user) return 0;
     if (!qotd_ensure_storage()) return 0;
@@ -51,6 +69,10 @@ int qotd_record_entry(const char *date, const char *user, const char *question, 
     return ok ? 1 : 0;
 }
 
+/* 함수 목적: qotd_get_solved_users_for_date 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: date, out_users, out_count
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out_count) {
     if (!date || !out_users || !out_count) return 0;
     FILE *f = fopen("data/qotd.csv", "r");
@@ -90,6 +112,10 @@ int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out
 
 /* Attempt to load today's QOTD from data/qotd_questions.csv.
  * Returns 1 if found and fills *out, 0 if not found or on error.
+ */
+/* 함수 목적: qotd_get_today 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out
+ * 반환 값: 함수 수행 결과를 나타냅니다.
  */
 int qotd_get_today(QOTD *out) {
     if (!out) return 0;
@@ -144,6 +170,10 @@ int qotd_get_today(QOTD *out) {
 
 /* Mark today's QOTD as solved by appending a record in data/qotd.csv
  * Format: date|username|qotdname|solved\n
+ */
+/* 함수 목적: qotd_mark_solved 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username
+ * 반환 값: 함수 수행 결과를 나타냅니다.
  */
 int qotd_mark_solved(const char *username) {
     if (!username) return 0;

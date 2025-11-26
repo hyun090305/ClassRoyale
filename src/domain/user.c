@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: user 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/user.h"
 
 #include <stddef.h>
@@ -14,6 +20,10 @@ static User g_users[MAX_STUDENTS];
 static size_t g_user_count = 0;
 static int g_seeded = 0;
 
+/* 함수 목적: copy_item 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: dst, src
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void copy_item(Item *dst, const Item *src) {
     if (!dst || !src) {
         return;
@@ -21,6 +31,10 @@ static void copy_item(Item *dst, const Item *src) {
     *dst = *src;
 }
 
+/* 함수 목적: copy_mission 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: dst, src
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void copy_mission(Mission *dst, const Mission *src) {
     if (!dst || !src) {
         return;
@@ -28,6 +42,10 @@ static void copy_mission(Mission *dst, const Mission *src) {
     *dst = *src;
 }
 
+/* 함수 목적: seed_defaults 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void seed_defaults(void) {
     if (g_seeded) return; /* already seeded */
     g_seeded = 1;
@@ -210,6 +228,10 @@ static void seed_defaults(void) {
     fclose(fp1);
 }
 
+/* 함수 목적: has_duplicate 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int has_duplicate(const char *username) {
     for (size_t i = 0; i < g_user_count; ++i) {
         if (strncmp(g_users[i].name, username, sizeof(g_users[i].name)) == 0) {
@@ -232,6 +254,10 @@ User *user_lookup(const char *username) {
     return NULL;
 }
 
+/* 함수 목적: user_count 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 size_t user_count(void) {
     seed_defaults();
     return g_user_count;
@@ -245,6 +271,10 @@ const User *user_at(size_t index) {
     return &g_users[index];
 }
 
+/* 함수 목적: user_register 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: new_user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int user_register(const User *new_user) {
     seed_defaults();
     if (!new_user || g_user_count >= MAX_STUDENTS) {
@@ -284,6 +314,10 @@ int user_register(const User *new_user) {
     return 1;
 }
 
+/* 함수 목적: user_auth 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, password
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int user_auth(const char *username, const char *password) {
     seed_defaults();
     if (!username || !password) {
@@ -297,6 +331,10 @@ int user_auth(const char *username, const char *password) {
 }
 
 // Persist updated balance to data/accounts.csv (rewrites file from in-memory user table)
+/* 함수 목적: user_update_balance 함수는 user 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, new_balance
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int user_update_balance(const char *username, int new_balance) {
     if (!username) return 0;
     seed_defaults(); /* ensure in-memory users are loaded */

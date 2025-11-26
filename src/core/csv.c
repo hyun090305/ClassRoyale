@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: 핵심 유틸리티 및 데이터 처리 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/core/csv.h"
 
 #include <stdio.h>
@@ -14,6 +20,10 @@
 #define MKDIR(p) mkdir(p, 0755)
 #endif
 
+/* 함수 목적: csv_ensure_dir 함수는 핵심 유틸리티 및 데이터 처리 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: path
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int csv_ensure_dir(const char *path) {
     if (!path) return 0;
     /* try to create; ignore errors if exists */
@@ -21,6 +31,10 @@ int csv_ensure_dir(const char *path) {
     return 1;
 }
 
+/* 함수 목적: csv_append_row 함수는 핵심 유틸리티 및 데이터 처리 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: path, fmt, ...
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int csv_append_row(const char *path, const char *fmt, ...) {
     if (!path || !fmt) return 0;
     FILE *f = fopen(path, "a");
@@ -36,6 +50,10 @@ int csv_append_row(const char *path, const char *fmt, ...) {
 
 /* Read file fully and return last max_lines as a single newline-separated buffer.
  * Caller must free *out_buf. Returns 1 on success, 0 on error. */
+/* 함수 목적: csv_read_last_lines 함수는 핵심 유틸리티 및 데이터 처리 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: path, max_lines, out_buf, out_len
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int csv_read_last_lines(const char *path, int max_lines, char **out_buf, size_t *out_len) {
     if (!path || !out_buf || !out_len) return 0;
     FILE *f = fopen(path, "r");
