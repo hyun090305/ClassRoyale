@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: shop 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/shop.h"
 
 #include <stdio.h>
@@ -12,6 +18,10 @@
 static Shop g_shop;
 static int g_shop_seeded = 0;
 
+/* 함수 목적: ensure_seeded 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void ensure_seeded(void) {
     if (g_shop_seeded) {
         return;
@@ -92,6 +102,10 @@ static Item *find_or_create_user_item(User *user, const char *name) {
     return NULL;
 }
 
+/* 함수 목적: shop_list 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out_arr, out_n
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int shop_list(Shop *out_arr, int *out_n) {
     ensure_seeded();
     if (!out_arr || !out_n) {
@@ -102,6 +116,10 @@ int shop_list(Shop *out_arr, int *out_n) {
     return 1;
 }
 
+/* 함수 목적: shop_buy 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, item, qty
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int shop_buy(const char *username, const Item *item, int qty) {
      ensure_seeded();
     if (!username || !item || qty <= 0) {
@@ -165,6 +183,10 @@ int shop_buy(const char *username, const Item *item, int qty) {
     return 1;
 }
 
+/* 함수 목적: shop_sell 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, item, qty
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int shop_sell(const char *username, const Item *item, int qty) {
     ensure_seeded();
     if (!username || !item || qty <= 0) {
@@ -203,6 +225,10 @@ int shop_sell(const char *username, const Item *item, int qty) {
 #define MAX_LINE 256
 #define MAX_NAME 64
 
+/* 함수 목적: shop_decrease_stock_csv 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: item_name
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 bool shop_decrease_stock_csv(const char *item_name) {
     FILE *fp = fopen(ITEMS_CSV_PATH, "r");
     if (!fp) {

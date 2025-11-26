@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: tui_login 관련 터미널 UI 로직 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/ui/tui_login.h"
 
 #include <stdlib.h>
@@ -11,6 +17,10 @@
 #include "../../include/ui/tui_ncurses.h"
 static void user_stock_load_holdings(User *user);
 
+/* 함수 목적: draw_welcome 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: highlight, status_line
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void draw_welcome(int highlight, const char *status_line) {
     static WINDOW *win = NULL;
     int width = 64;
@@ -43,6 +53,10 @@ static void draw_welcome(int highlight, const char *status_line) {
     wrefresh(win);
 }
 
+/* 함수 목적: prompt_role 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: form
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static rank_t prompt_role(WINDOW *form) {
     const char *roles[] = {"Student", "Teacher"};
     int highlight = 0;
@@ -71,6 +85,10 @@ static rank_t prompt_role(WINDOW *form) {
     }
 }
 
+/* 함수 목적: trim_whitespace 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: s
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void trim_whitespace(char *s) {
     if (!s) return;
     // trim leading
@@ -141,6 +159,10 @@ static User *prompt_login(void) {
     return user;
 }
 
+/* 함수 목적: prompt_register 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void prompt_register(void) {
     int width = 60;
     int height = 14;
@@ -242,6 +264,10 @@ User *tui_login_flow(void) {
 
 /* data/stocks/(username).csv 에 저장된
  * "종목명,보유량" 들을 user->holdings[] 로 불러온다
+ */
+/* 함수 목적: user_stock_load_holdings 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
  */
 static void user_stock_load_holdings(User *user) {
     if (!user) return;

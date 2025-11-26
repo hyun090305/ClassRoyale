@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: tui_teacher 관련 터미널 UI 로직 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/ui/tui_teacher.h"
 
 #include <stdlib.h>
@@ -12,6 +18,10 @@
 #include "../../include/ui/tui_ncurses.h"
 #include "../../include/core/csv.h"
 
+/* 함수 목적: collect_students 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out[], max_items
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int collect_students(User *out[], int max_items) {
     int count = 0;
     size_t total = user_count();
@@ -27,6 +37,10 @@ static int collect_students(User *out[], int max_items) {
     return count;
 }
 
+/* 함수 목적: draw_teacher_dashboard 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, status
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void draw_teacher_dashboard(User *user, const char *status) {
     erase();
     mvprintw(1, (COLS - 32) / 2, "Class Royale - Teacher Dashboard");
@@ -85,6 +99,10 @@ static void draw_teacher_dashboard(User *user, const char *status) {
     refresh();
 }
 
+/* 함수 목적: handle_new_mission 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void handle_new_mission(void) {
     int height = 14;
     int width = 64;
@@ -126,6 +144,10 @@ static void handle_new_mission(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: handle_broadcast 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void handle_broadcast(void) {
     int height = 8;
     int width = 60;
@@ -138,6 +160,10 @@ static void handle_broadcast(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: handle_qotd_assign 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void handle_qotd_assign(void) {
     int height = 18;
     int width = 72;
@@ -227,6 +253,10 @@ static void handle_qotd_assign(void) {
     }
 }
 
+/* 함수 목적: handle_student_list 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void handle_student_list(void) {
     User *students[MAX_STUDENTS];
     int count = collect_students(students, MAX_STUDENTS);
@@ -321,6 +351,10 @@ static void handle_student_list(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: tui_teacher_loop 함수는 tui_teacher 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void tui_teacher_loop(User *user) {
     if (!user) {
         return;

@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: mission 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/mission.h"
 
 #include <stdio.h>
@@ -16,6 +22,10 @@ static int g_next_id = 1;
 static int g_seeded = 0;
 
 /* helpers to avoid duplicates in the global catalog */
+/* 함수 목적: catalog_has_id 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: id
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int catalog_has_id(int id) {
     for (int i = 0; i < g_catalog_count; ++i) {
         if (g_catalog[i].id == id) return 1;
@@ -23,6 +33,10 @@ static int catalog_has_id(int id) {
     return 0;
 }
 
+/* 함수 목적: catalog_has_name 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: name
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int catalog_has_name(const char *name) {
     if (!name) return 0;
     for (int i = 0; i < g_catalog_count; ++i) {
@@ -31,6 +45,10 @@ static int catalog_has_name(const char *name) {
     return 0;
 }
 
+/* 함수 목적: ensure_seeded 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void ensure_seeded(void) {
     if (g_seeded) {
         return;
@@ -82,12 +100,20 @@ static void ensure_seeded(void) {
 
 /* public helper: clear the seeded flag and re-run the seeder so callers
    can force the in-memory catalog to be refreshed from disk */
+/* 함수 목적: mission_refresh_catalog 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int mission_refresh_catalog(void) {
     g_seeded = 0;
     ensure_seeded();
     return g_catalog_count;
 }
 
+/* 함수 목적: mission_create 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: m
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int mission_create(const Mission *m) {
     ensure_seeded();
     /* prevent creating duplicate missions by name */
@@ -125,6 +151,10 @@ int mission_create(const Mission *m) {
     return 1;
 }
 
+/* 함수 목적: mission_list_open 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out_arr, out_n
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int mission_list_open(Mission *out_arr, int *out_n) {
     ensure_seeded();
     if (!out_arr || !out_n) {
@@ -152,6 +182,10 @@ static Mission *find_user_mission(User *user, int mission_id) {
     return NULL;
 }
 
+/* 함수 목적: mission_complete 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, mission_id
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int mission_complete(const char *username, int mission_id) {
     ensure_seeded();
     if (!username) {
@@ -190,6 +224,10 @@ int mission_complete(const char *username, int mission_id) {
     return 1;
 }
 
+/* 함수 목적: mission_load_user 함수는 mission 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int mission_load_user(const char *username, User *user) {
     if (!username || !user) return -1;
     /* Ensure global catalog is loaded so we can populate user's mission list from it */

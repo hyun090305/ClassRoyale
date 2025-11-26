@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: economy 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/economy.h"
 
 #include <math.h>
@@ -8,6 +14,10 @@
 #include "../../include/domain/account.h"
 #include "../../include/core/csv.h"
 
+/* 함수 목적: econ_deposit 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: acc, amount
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int econ_deposit(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
         return 0;
@@ -15,6 +25,10 @@ int econ_deposit(Bank *acc, int amount) {
     return account_adjust(acc, amount);
 }
 
+/* 함수 목적: econ_borrow 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: acc, amount
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int econ_borrow(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
         return 0;
@@ -23,6 +37,10 @@ int econ_borrow(Bank *acc, int amount) {
     return account_adjust(acc, amount);
 }
 
+/* 함수 목적: econ_repay 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: acc, amount
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int econ_repay(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
         return 0;
@@ -30,6 +48,10 @@ int econ_repay(Bank *acc, int amount) {
     return account_adjust(acc, -amount);
 }
 
+/* 함수 목적: econ_apply_hourly_interest 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, hours
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int econ_apply_hourly_interest(User *user, int hours) {
     if (!user || hours <= 0) return 0;
 

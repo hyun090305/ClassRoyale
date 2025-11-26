@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: account 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/account.h"
 
 #include <stdio.h>
@@ -9,6 +15,10 @@
 #include "../../include/domain/user.h"
 #include "../../include/core/csv.h"
 
+/* 함수 목적: bank_log_append 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, msg
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void bank_log_append(User *user, const char *msg) {
     if (!user || !msg) return;
 
@@ -26,6 +36,10 @@ void bank_log_append(User *user, const char *msg) {
 }
 
 
+/* 함수 목적: account_get_by_user 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, out
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_get_by_user(const char *username, Bank *out) {
     if (!username || !out) {
         return 0;
@@ -38,6 +52,10 @@ int account_get_by_user(const char *username, Bank *out) {
     return 1;
 }
 
+/* 함수 목적: account_adjust 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: acc, amount
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_adjust(Bank *acc, int amount) {
     if (!acc) {
         return 0;
@@ -73,6 +91,10 @@ int account_adjust(Bank *acc, int amount) {
     return 1;
 }
 
+/* 함수 목적: account_recent_tx 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, limit, buf, buflen
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_recent_tx(const char *username, int limit, char *buf, size_t buflen) {
     if (!username || !buf || buflen == 0) return -1;
     char path[512];
@@ -156,6 +178,10 @@ int account_recent_tx(const char *username, int limit, char *buf, size_t buflen)
     return (int)outpos;
 }
 
+/* 함수 목적: account_add_tx 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_add_tx(User *user, int amount, const char *reason) {
     if (!user) return 0;
 
@@ -182,6 +208,10 @@ int account_add_tx(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_withdraw_to_cash 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_withdraw_to_cash(User *user, int amount, const char *reason) {
     if (!user || amount <= 0) return 0;
     /* withdraw from deposit (balance) to cash */
@@ -201,6 +231,10 @@ int account_withdraw_to_cash(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_deposit_from_cash 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_deposit_from_cash(User *user, int amount, const char *reason) {
     if (!user || amount <= 0) return 0;
     if (user->bank.cash < amount) return 0;
@@ -218,6 +252,10 @@ int account_deposit_from_cash(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_take_loan 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_take_loan(User *user, int amount, const char *reason) {
     if (!user || amount <= 0) return 0;
     /* increase loan and give cash to user */
@@ -236,6 +274,10 @@ int account_take_loan(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_repay_loan 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_repay_loan(User *user, int amount, const char *reason) {
     if (!user || amount <= 0) return 0;
     /* need sufficient cash and outstanding loan */
@@ -253,6 +295,10 @@ int account_repay_loan(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_grant_cash 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_grant_cash(User *user, int amount, const char *reason) {
     if (!user || amount <= 0) return 0;
     long newcash = (long)user->bank.cash + amount;
@@ -279,6 +325,10 @@ int account_grant_cash(User *user, int amount, const char *reason) {
     return 1;
 }
 
+/* 함수 목적: account_add_tx_by_username 함수는 account 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, amount, reason
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int account_add_tx_by_username(const char *username, int amount, const char *reason) {
     if (!username) return 0;
     User *u = user_lookup(username);
