@@ -919,7 +919,7 @@ static void handle_account_view(User *user) {
         mvwprintw(win, 2, 2, "Cash: %d Cr", user->bank.cash);
         mvwprintw(win, 3, 2, "Loan: %d Cr", user->bank.loan);
         /* rating removed */
-        mvwprintw(win, 7, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
+        mvwprintw(win, 5, 2, "Commands: d)deposit  w)withdraw  b)borrow  r)repay  q)close");
         wrefresh(win);
         int ch = wgetch(win);
         if (ch == 'd' || ch == 'b' || ch == 'r' || ch == 'w') {
@@ -950,8 +950,6 @@ static void handle_account_view(User *user) {
                 } else if (ch == 'w') {
                     /* withdraw from deposit to cash */
                     ok = account_withdraw_to_cash(user, amount, "WITHDRAW_TO_CASH");
-                    /* take loan: loan += amount, cash += amount */
-                    ok = account_take_loan(user, amount, "LOAN_TAKEN");
                 } else if (ch == 'r') {
                     /* repay loan: loan -= amount, cash -= amount */
                     ok = account_repay_loan(user, amount, "LOAN_REPAY");
