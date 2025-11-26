@@ -2332,7 +2332,7 @@ static void handle_stocks_view(User *user) {
 
         /* 아래쪽 조작 안내 (여기를 '버튼' 느낌으로 써도 됨) */
         mvwprintw(win, height - 2, 2,
-                  "↑↓ move  Enter buy  s sell  g graph  q close");
+                  "up/down move  Enter buy  s sell  g graph  q close");
 
         wrefresh(win);
 
