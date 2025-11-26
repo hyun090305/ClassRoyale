@@ -423,9 +423,9 @@ static Stock *find_stock(const char *symbol) {
     return NULL;
 }
 
-/* 함수 목적: stock_list 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식 정보를 특정 개수만큼 옮겨담는다.
  * 매개변수: out_arr, out_n
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int stock_list(Stock *out_arr, int *out_n) {
     ensure_seeded();
@@ -452,9 +452,9 @@ int stock_list(Stock *out_arr, int *out_n) {
     return 1;
 }
 
-/* 함수 목적: stock_get_history 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식의 히스토리를 out_buf에 복사한다. 
  * 매개변수: symbol, out_buf, max_len
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 주식의 히스토리 길이
  */
 int stock_get_history(const char *symbol, int *out_buf, int max_len) {
     ensure_seeded();
@@ -475,9 +475,9 @@ int stock_get_history(const char *symbol, int *out_buf, int max_len) {
 /* data/stocks/(username).csv 에 저장된
  * "종목명,보유량" 들을 user->holdings[] 로 불러온다
  */
-/* 함수 목적: user_stock_load_holdings 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 사용자의 주식 보유량을 CSV 파일에서 불러온다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void user_stock_load_holdings(User *user) {
     if (!user) return;

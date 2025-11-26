@@ -1,8 +1,6 @@
 /*
  * 파일 목적: qotd 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 박시유
  */
 #include "../../include/domain/qotd.h"
 #include "../../include/core/csv.h"
@@ -17,9 +15,9 @@
  * Fields will have ',' and newlines replaced by spaces to keep format simple.
  */
 
-/* 함수 목적: sanitize_field 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 입력 문자열에서 CSV에서 문제되는 문자(, , \n, \r)를 전부 공백 ' '으로 바꿔서 출력 버퍼에 넣어주는 함수.
  * 매개변수: in, out, out_sz
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void sanitize_field(const char *in, char *out, size_t out_sz) {
     if (!in || !out || out_sz == 0) return;
@@ -32,9 +30,9 @@ static void sanitize_field(const char *in, char *out, size_t out_sz) {
     out[oi] = '\0';
 }
 
-/* 함수 목적: qotd_ensure_storage 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: qotd 를 csv 파일에 저장하기 위한 스토리지 준비를 수행한다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int qotd_ensure_storage(void) {
     /* ensure data directory exists; file will be created when appending */
@@ -45,9 +43,9 @@ int qotd_ensure_storage(void) {
     return 1;
 }
 
-/* 함수 목적: qotd_record_entry 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 특정 날짜에 어떤 유저가 어떤 문제에 대해 어떤 상태를 남겼는지 기록하는 함수.
  * 매개변수: date, user, question, status
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int qotd_record_entry(const char *date, const char *user, const char *question, const char *status) {
     if (!date || !user) return 0;
