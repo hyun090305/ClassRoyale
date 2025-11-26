@@ -1281,14 +1281,26 @@ static void load_seats_csv(void) {
     FILE *fp = fopen("data/seats.csv", "r");
     if (!fp) return;
 
-    int num;
-    char name[64];
+    char line[256];
 
-    while (fscanf(fp, "%d,%63[^\n]\n", &num, name) != EOF) {
+    while (fgets(line, sizeof(line), fp)) {
+
+        // 줄 파싱
+        char *comma = strchr(line, ',');
+        if (!comma) continue;
+
+        *comma = '\0';      // 좌석 번호 부분 끝내기
+        int num = atoi(line);
+
+        char *name = comma + 1;
+        name[strcspn(name, "\r\n")] = '\0'; // 개행 제거
+
         strcpy(g_seats[num].name, name);
     }
+
     fclose(fp);
 }
+
 void save_seats_csv(void) {
     FILE *fp = fopen("data/seats.csv", "w");
     if (!fp) return;
