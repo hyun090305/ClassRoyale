@@ -41,7 +41,7 @@ typedef struct StockHolding StockHolding;
 typedef struct User User;
 typedef struct AssetPoint AssetPoint;
 typedef struct Seat Seat;
-
+typedef struct Notification Notification;
 typedef struct StockHolding {
     char symbol[32];
     int qty;
@@ -111,6 +111,11 @@ struct AssetPoint{
 
 struct Seat{
     char name[64];
+};
+
+struct Notification {
+    char username[50];
+    char message[128];
 };
 
 #endif /* TYPES_H */

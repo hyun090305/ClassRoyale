@@ -67,9 +67,9 @@ int qotd_record_entry(const char *date, const char *user, const char *question, 
     return ok ? 1 : 0;
 }
 
-/* 함수 목적: qotd_get_solved_users_for_date 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: qotd.csv를 읽어서, 특정 날짜에 QOTD 기록이 있는 유저 이름 목록을(중복 없이) 만듬
  * 매개변수: date, out_users, out_count
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out_count) {
     if (!date || !out_users || !out_count) return 0;
@@ -111,9 +111,9 @@ int qotd_get_solved_users_for_date(const char *date, char ***out_users, int *out
 /* Attempt to load today's QOTD from data/qotd_questions.csv.
  * Returns 1 if found and fills *out, 0 if not found or on error.
  */
-/* 함수 목적: qotd_get_today 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 당일의 qotd 를 가져오는 함수
  * 매개변수: out
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 당일의 qotd 를 찾았는지 여부
  */
 int qotd_get_today(QOTD *out) {
     if (!out) return 0;
@@ -169,9 +169,9 @@ int qotd_get_today(QOTD *out) {
 /* Mark today's QOTD as solved by appending a record in data/qotd.csv
  * Format: date|username|qotdname|solved\n
  */
-/* 함수 목적: qotd_mark_solved 함수는 qotd 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: qotd 해결했는지 여부를 확인하는 함수
  * 매개변수: username
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: qotd 해결했는지 여부
  */
 int qotd_mark_solved(const char *username) {
     if (!username) return 0;

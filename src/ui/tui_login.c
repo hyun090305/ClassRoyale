@@ -1,6 +1,6 @@
 /*
  * 파일 목적: tui_login 관련 터미널 UI 로직 구현
- * 작성자: 채연우
+ * 작성자: 박성우
  */
 #include "../../include/ui/tui_login.h"
 
