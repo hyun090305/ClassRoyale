@@ -2220,7 +2220,7 @@ static void handle_stock_graph_view(const Stock *stock) {
 
         /* 아래쪽 안내 & 현재 구간 표시 */
         mvwprintw(win, height - 2, 2,
-                  "←/→ scroll  q back  range [%d - %d] / %d",
+                  "<-/-> scroll  q back  range [%d - %d] / %d",
                   offset, window_end - 1, len);
 
         wrefresh(win);
