@@ -1,21 +1,5 @@
 #include <stdio.h>
 
-typedef enum{ 
-STUDENT = 0, TEACHER 
-}rank; 
-
-typedef struct {
-    char *name;
-    Bank bank;
-    char *id;
-    char *pw;
-    rank isadmin;
-    Item items[10];
-    int completed_missions;
-    int total_missions;
-    Mission mission[99];
-} User;
-
 typedef struct {
     char *name;
     int balance;
