@@ -1,8 +1,10 @@
 /*
- * 파일 목적: economy 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 파일 목적: 경제 관련 기능 정리
+ * 작성자: 이현준
+ * 작성일: 2025-11-20
+ * 수정 이력: 
+ * 2025-11-21 대출, 예금 기능 만듦
+ * 2025-11-25 이자 추가
  */
 #include "../../include/domain/economy.h"
 
@@ -14,9 +16,9 @@
 #include "../../include/domain/account.h"
 #include "../../include/core/csv.h"
 
-/* 함수 목적: econ_deposit 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 은행에 돈을 예금
  * 매개변수: acc, amount
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int econ_deposit(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
@@ -25,9 +27,9 @@ int econ_deposit(Bank *acc, int amount) {
     return account_adjust(acc, amount);
 }
 
-/* 함수 목적: econ_borrow 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 은행에서 돈을 대출
  * 매개변수: acc, amount
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int econ_borrow(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
@@ -37,9 +39,9 @@ int econ_borrow(Bank *acc, int amount) {
     return account_adjust(acc, amount);
 }
 
-/* 함수 목적: econ_repay 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 은행에 돈 갚기
  * 매개변수: acc, amount
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int econ_repay(Bank *acc, int amount) {
     if (!acc || amount <= 0) {
@@ -48,9 +50,9 @@ int econ_repay(Bank *acc, int amount) {
     return account_adjust(acc, -amount);
 }
 
-/* 함수 목적: econ_apply_hourly_interest 함수는 economy 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 1시간 단위로 이자 지급
  * 매개변수: user, hours
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int econ_apply_hourly_interest(User *user, int hours) {
     if (!user || hours <= 0) return 0;
