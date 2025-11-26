@@ -1,8 +1,6 @@
 /*
  * 파일 목적: stock 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 박성우
  */
 #include "../../include/domain/stock.h"
 
@@ -21,10 +19,10 @@
 static Stock g_stocks[MAX_STOCKS];
 static int   g_stock_count  = 0;
 static int   g_seeded       = 0;
-
 static time_t g_start_time   = 0;
 static int    g_applied_hours = 0;
 static int    g_visible_len[MAX_STOCKS];
+
 /* -------------------------------------------------------------------------- */
 /*  static 함수 선언 (프로토타입)                                             */
 /* -------------------------------------------------------------------------- */
@@ -38,9 +36,9 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol);
 /*  static helper 함수 정의                                                   */
 /* -------------------------------------------------------------------------- */
 
-/* 함수 목적: user_stock_save_holdings 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식을 보유한 사용자의 보유량을 CSV 파일에 저장한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void user_stock_save_holdings(User *user) {
     if (!user) return;
@@ -66,9 +64,9 @@ static void user_stock_save_holdings(User *user) {
     fclose(fp);
 }
 
-/* 함수 목적: trim_whitespace 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 문자열 앞뒤의 공백을 제거한다.
  * 매개변수: str
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void trim_whitespace(char *str) {
     char *end;
@@ -90,7 +88,10 @@ void trim_whitespace(char *str) {
     *(end + 1) = '\0';
 }
 
-
+/* 함수 목적: 사용자가 특정 심볼의 주식을 보유하고 있는지 찾는다.
+ * 매개변수: user, symbol
+ * 반환 값: 주식 보유량
+ */
 static StockHolding *find_holding(User *user, const char *symbol) {
     if (!user || !symbol) {
         return NULL;
@@ -107,6 +108,11 @@ static StockHolding *find_holding(User *user, const char *symbol) {
     return NULL;
 }
 
+/* 함수 목적: 사용자가 특정 심볼의 주식을 보유하고 있으면 반환하고,
+ *           없으면 새로 생성하여 반환한다.
+ * 매개변수: user, symbol
+ * 반환 값: 주식 보유량
+ */
 static StockHolding *find_or_create_holding(User *user, const char *symbol) {
     StockHolding *holding = find_holding(user, symbol);
     if (holding) {
@@ -123,9 +129,9 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol) {
     return holding;
 }
 
-/* 함수 목적: stock_deal 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식 거래를 시행한다.
  * 매개변수: username, symbol, qty, is_buy
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
     ensure_seeded();
@@ -178,9 +184,9 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
 
 
 
-/* 함수 목적: stock_load_from_csv 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식 정보를 csv 파일에서 불러온다.
  * 매개변수: path
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void stock_load_from_csv(const char *path) {
     FILE *fp = fopen(path, "r");
@@ -334,9 +340,9 @@ static void stock_load_from_csv(const char *path) {
 }
 
 
-/* 함수 목적: ensure_seeded 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 걸정을 초기화한다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void ensure_seeded(void) {
     if (g_seeded) return;
@@ -352,9 +358,9 @@ static void ensure_seeded(void) {
     g_seeded = 1;
 }
 
-/* 함수 목적: stock_maybe_update_by_time 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 시간 경과에 따라 주식 정보를 업데이트한다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void stock_maybe_update_by_time(void) {
     ensure_seeded();
@@ -402,6 +408,10 @@ void stock_maybe_update_by_time(void) {
     }
 }
 
+/* 함수 목적: 주식 심볼로 주식 정보를 찾는다.
+ * 매개변수: symbol
+ * 반환 값: 주식 포인터
+ */
 static Stock *find_stock(const char *symbol) {
     if (!symbol) return NULL;
     for (int i = 0; i < g_stock_count; ++i) {
