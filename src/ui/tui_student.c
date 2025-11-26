@@ -1392,7 +1392,7 @@ static void handle_class_seats_view(User *user) {
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
-                user->bank.cash += 10000;
+                user->bank.cash += 1000;
                 wrefresh(win);
                 napms(500);
                 break;
@@ -1405,7 +1405,7 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                user->bank.cash -= 10000;  
+                user->bank.cash -= 1000;  
                 wrefresh(win);
                 napms(500);
             } else {
