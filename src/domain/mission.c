@@ -94,6 +94,7 @@ static void ensure_seeded(void) {
             p = nl + 1;
         }
         free(buf);
+        buf = NULL;
     }
     g_seeded = 1;
 }
@@ -266,6 +267,7 @@ int mission_load_user(const char *username, User *user) {
             p = nl + 1;
         }
         free(buf);
+        buf = NULL;
     }
 
     /* Rebuild per-user file to contain only COMPLETE lines (drop ASSIGN) */

@@ -1,8 +1,6 @@
 /*
  * 파일 목적: shop 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 박성우
  */
 #include "../../include/domain/shop.h"
 
@@ -18,9 +16,9 @@
 static Shop g_shop;
 static int g_shop_seeded = 0;
 
-/* 함수 목적: ensure_seeded 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 기본 설정 초기화
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void ensure_seeded(void) {
     if (g_shop_seeded) {
@@ -66,6 +64,10 @@ static void ensure_seeded(void) {
     g_shop_seeded = 1;
 }
 
+/* 함수 목적: 상점에서 아이템을 찾는다.
+ * 매개변수: name
+ * 반환 값: 아이템 포인터
+ */
 static Item *find_store_item(const char *name) {
     for (int i = 0; i < g_shop.item_count; ++i) {
         if (strncmp(g_shop.items[i].name, name, sizeof(g_shop.items[i].name)) == 0) {
@@ -75,6 +77,10 @@ static Item *find_store_item(const char *name) {
     return NULL;
 }
 
+/* 함수 목적: 유저 이름을 찾는다.
+ * 매개변수: name
+ * 반환 값: 유저 포인터
+ */
 static Item *find_user_item(User *user, const char *name) {
     if (!user) {
         return NULL;
@@ -87,6 +93,10 @@ static Item *find_user_item(User *user, const char *name) {
     return NULL;
 }
 
+/* 함수 목적: 유저 인벤토리에서 name 아이템을 찾거나 없으면 생성해서 반환
+ * 매개변수: name, user
+ * 반환 값: 유저 포인터 또는 아이템
+ */
 static Item *find_or_create_user_item(User *user, const char *name) {
     Item *item = find_user_item(user, name);
     if (item) {
@@ -102,9 +112,9 @@ static Item *find_or_create_user_item(User *user, const char *name) {
     return NULL;
 }
 
-/* 함수 목적: shop_list 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점에 등록하기
  * 매개변수: out_arr, out_n
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int shop_list(Shop *out_arr, int *out_n) {
     ensure_seeded();
@@ -116,9 +126,9 @@ int shop_list(Shop *out_arr, int *out_n) {
     return 1;
 }
 
-/* 함수 목적: shop_buy 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점에서 물건을 구매한다.
  * 매개변수: username, item, qty
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int shop_buy(const char *username, const Item *item, int qty) {
      ensure_seeded();
@@ -183,9 +193,9 @@ int shop_buy(const char *username, const Item *item, int qty) {
     return 1;
 }
 
-/* 함수 목적: shop_sell 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점에 물건을 판매한다.
  * 매개변수: username, item, qty
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 int shop_sell(const char *username, const Item *item, int qty) {
     ensure_seeded();
@@ -225,9 +235,9 @@ int shop_sell(const char *username, const Item *item, int qty) {
 #define MAX_LINE 256
 #define MAX_NAME 64
 
-/* 함수 목적: shop_decrease_stock_csv 함수는 shop 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점에서 주식 재고를 1 감소시키고 csv 에 저장한다.
  * 매개변수: item_name
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 성공 여부
  */
 bool shop_decrease_stock_csv(const char *item_name) {
     FILE *fp = fopen(ITEMS_CSV_PATH, "r");

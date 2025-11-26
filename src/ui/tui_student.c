@@ -162,8 +162,10 @@ static void handle_qotd_view(User *user) {
             for (int i = 0; i < ucount; ++i) {
                 if (users[i]) qotd_runtime_mark_solved(users[i]);
                 free(users[i]);
+                users[i] = NULL;
             }
             free(users);
+            users = NULL;
         }
     }
     if (qotd_is_solved(user->name)) {
@@ -394,8 +396,10 @@ static void draw_dashboard(User *user, const char *status) {
                 for (int i = 0; i < ucount; ++i) {
                     if (users[i]) qotd_runtime_mark_solved(users[i]);
                     free(users[i]);
+                    users[i] = NULL;
                 }
                 free(users);
+                users = NULL;
             }
         }
     }
@@ -776,7 +780,7 @@ static int collect_asset_points(User *user, AssetPoint *points, int max_points) 
     char *raw = NULL;
     size_t raw_len = 0;
     if (!csv_read_last_lines(path, ACCOUNT_STATS_MAX_TX, &raw, &raw_len) || !raw) {
-        if (raw) free(raw);
+        if (raw) { free(raw); raw = NULL; }
         return 0;
     }
 
@@ -825,6 +829,7 @@ static int collect_asset_points(User *user, AssetPoint *points, int max_points) 
     }
 
     free(raw);
+    raw = NULL;
 
     if (row_count == 0) return 0;
 

@@ -202,6 +202,7 @@ static void seed_defaults(void) {
                         char *tok = strtok(lastbuf, ",");
                         if (tok) derived_ts = atol(tok);
                         free(lastbuf);
+                        lastbuf = NULL;
                     }
                     if (derived_ts > 0) g_users[i].bank.last_interest_ts = derived_ts;
                     else g_users[i].bank.last_interest_ts = (long)time(NULL);
