@@ -6,6 +6,8 @@
 #include "../../include/domain/account.h"
 #include "../../include/domain/user.h"
 #include "../../include/ui/tui_student.h"
+#include "../../include/core/csv.h"
+#include <time.h>
 
 static Shop g_shop;
 static int g_shop_seeded = 0;
@@ -101,7 +103,7 @@ int shop_list(Shop *out_arr, int *out_n) {
 }
 
 int shop_buy(const char *username, const Item *item, int qty) {
-    ensure_seeded();
+     ensure_seeded();
     if (!username || !item || qty <= 0) {
         return 0;
     }
@@ -117,16 +119,36 @@ int shop_buy(const char *username, const Item *item, int qty) {
         return 0;
     }
     int total_cost = store_item->cost * qty;
-    if (!account_add_tx(user, -total_cost, store_item->name)) {
+    /* Use cash-on-hand instead of deposit balance. Log transaction to CSV. */
+    if (user->bank.cash < total_cost) {
         return 0;
+    }
+    /* decrease user's cash and append tx CSV (reason = item name) */
+    {
+        /* sanitize reason similar to account_add_tx */
+        char reason_safe[128] = "";
+        if (store_item->name && store_item->name[0]) {
+            snprintf(reason_safe, sizeof(reason_safe), "%s", store_item->name);
+            for (size_t i = 0; i < sizeof(reason_safe); ++i) {
+                if (reason_safe[i] == ',' || reason_safe[i] == '\n' || reason_safe[i] == '\r') reason_safe[i] = ' ';
+                if (reason_safe[i] == '\0') break;
+            }
+        }
+        user->bank.cash -= total_cost;
+        /* append CSV row: ts,reason,amount,balance (balance == deposit balance unchanged) */
+        csv_ensure_dir("data");
+        csv_ensure_dir("data/txs");
+        char path[512];
+        snprintf(path, sizeof(path), "data/txs/%s.csv", user->name);
+        csv_append_row(path, "%ld,%s,%+d,%d", (long)time(NULL), reason_safe[0] ? reason_safe : "", -total_cost, user->bank.balance);
     }
     if (store_item->stock >= 0) {
         store_item->stock -= qty;
     }
     Item *owned = find_or_create_user_item(user, store_item->name);
     if (!owned) {
-        /* refund and record reason */
-        account_add_tx(user, total_cost, "SHOP_REFUND");
+        /* refund to cash and record reason */
+        account_grant_cash(user, total_cost, "SHOP_REFUND");
         return 0;
     }
     owned->stock += qty;
@@ -165,7 +187,8 @@ int shop_sell(const char *username, const Item *item, int qty) {
     }
     owned->stock -= qty;
     int payment = store_item->cost * qty;
-    account_add_tx(user, payment, "SHOP_SELL");
+    /* Give payment as cash-on-hand and log via account_grant_cash (writes CSV) */
+    account_grant_cash(user, payment, "SHOP_SELL");
     if (store_item->stock >= 0) {
         store_item->stock += qty;
     }
