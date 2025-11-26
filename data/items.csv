@@ -1,7 +1,1 @@
-# items.csv (placeholder)
-baseball,50,150
-note,100,100
-pencil,200,50
-eraser,150,75
-ohtani doll,5,2000
-coupon,18,300
+# Item_Name,Quantity,Price_Per_Unit
