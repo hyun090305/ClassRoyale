@@ -1,8 +1,6 @@
 /*
  * 파일 목적: notification 도메인 기능 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 채연우
  */
 #include "../../include/domain/notification.h"
 
@@ -15,18 +13,13 @@
 
 #include "../../include/domain/user.h"
 
-typedef struct Notification {
-    char username[50];
-    char message[128];
-} Notification;
-
 static Notification g_notifications[MAX_NOTIFICATIONS];
 static int g_notification_count = 0;
 static int g_notification_cursor = 0;
 
-/* 함수 목적: notify_push 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저한테 온 알림을 메모리에 저장하고, 동시에 파일(CSV)로 로그까지 남기는 함수
  * 매개변수: username, message
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void notify_push(const char *username, const char *message) {
     if (!username || !message) {
@@ -53,9 +46,9 @@ void notify_push(const char *username, const char *message) {
     csv_append_row(path, "%lld,%s", (long long)ts, msgbuf);
 }
 
-/* 함수 목적: notify_recent 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 특정 유저의 최근 알림을 최대 limit개까지 출력
  * 매개변수: username, limit
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 보여준 알림 수
  */
 int notify_recent(const char *username, int limit) {
     if (!username || limit <= 0) {
@@ -72,9 +65,9 @@ int notify_recent(const char *username, int limit) {
     return shown;
 }
 
-/* 함수 목적: notify_recent_to_buf 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 특정 유저의 최근 알림을 최대 limit개까지 buf에 포맷팅하여 저장
  * 매개변수: username, limit, buf, buflen
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: buf 에 쓴 바이트 수 
  */
 int notify_recent_to_buf(const char *username, int limit, char *buf, size_t buflen) {
     if (!username || !buf || buflen == 0) return -1;
