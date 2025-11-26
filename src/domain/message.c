@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: message 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/message.h"
 
 #include <stdio.h>
@@ -11,6 +17,10 @@
 
 #define MESSAGE_DIR "data/messages"
 
+/* 함수 목적: sanitize_text 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: src, dst, dst_len
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void sanitize_text(const char *src, char *dst, size_t dst_len) {
     if (!dst || dst_len == 0) return;
     dst[0] = '\0';
@@ -26,6 +36,10 @@ static void sanitize_text(const char *src, char *dst, size_t dst_len) {
     dst[di] = '\0';
 }
 
+/* 함수 목적: format_relative_time 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: ts, buf, buflen
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void format_relative_time(long ts, char *buf, size_t buflen) {
     if (!buf || buflen == 0) return;
     if (ts <= 0) {
@@ -58,10 +72,18 @@ static void format_relative_time(long ts, char *buf, size_t buflen) {
     }
 }
 
+/* 함수 목적: ensure_user_exists 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int ensure_user_exists(const char *username) {
     return username && *username && user_lookup(username) != NULL;
 }
 
+/* 함수 목적: message_send 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: from, to, body
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int message_send(const char *from, const char *to, const char *body) {
     if (!from || !to || !body) return 0;
     if (*from == '\0' || *to == '\0' || *body == '\0') return 0;
@@ -99,6 +121,10 @@ int message_send(const char *from, const char *to, const char *body) {
     return 1;
 }
 
+/* 함수 목적: format_feed_line 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: dst, dst_len, ts, dir, other, message
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int format_feed_line(char *dst, size_t dst_len, long ts, char dir, const char *other, const char *message) {
     if (!dst || dst_len == 0) return 0;
     char timestr[64];
@@ -113,6 +139,10 @@ static int format_feed_line(char *dst, size_t dst_len, long ts, char dir, const 
     return wrote;
 }
 
+/* 함수 목적: parse_line 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: line, out_ts, out_dir, other, other_len, message, msg_len
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static int parse_line(char *line, long *out_ts, char *out_dir, char *other, size_t other_len, char *message, size_t msg_len) {
     if (!line) return 0;
     /* line format: ts,dir,other,message */
@@ -134,6 +164,10 @@ static int parse_line(char *line, long *out_ts, char *out_dir, char *other, size
     return 1;
 }
 
+/* 함수 목적: message_recent_to_buf 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, limit, buf, buflen
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int message_recent_to_buf(const char *username, int limit, char *buf, size_t buflen) {
     if (!username || !buf || buflen == 0) return -1;
     buf[0] = '\0';
@@ -187,6 +221,10 @@ int message_recent_to_buf(const char *username, int limit, char *buf, size_t buf
     return (int)outpos;
 }
 
+/* 함수 목적: message_thread_to_buf 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, peer, limit, buf, buflen
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int message_thread_to_buf(const char *username, const char *peer, int limit, char *buf, size_t buflen) {
     if (!username || !peer || !buf || buflen == 0) return -1;
     buf[0] = '\0';
@@ -261,6 +299,10 @@ int message_thread_to_buf(const char *username, const char *peer, int limit, cha
     return (int)outpos;
 }
 
+/* 함수 목적: message_list_partners 함수는 message 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, partners[][50], max_partners
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int message_list_partners(const char *username, char partners[][50], int max_partners) {
     if (!username || !partners || max_partners <= 0) return 0;
     char path[512];

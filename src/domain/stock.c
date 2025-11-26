@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: stock 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/stock.h"
 
 #include <stdio.h>
@@ -32,6 +38,10 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol);
 /*  static helper 함수 정의                                                   */
 /* -------------------------------------------------------------------------- */
 
+/* 함수 목적: user_stock_save_holdings 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void user_stock_save_holdings(User *user) {
     if (!user) return;
 
@@ -56,6 +66,10 @@ static void user_stock_save_holdings(User *user) {
     fclose(fp);
 }
 
+/* 함수 목적: trim_whitespace 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: str
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void trim_whitespace(char *str) {
     char *end;
 
@@ -109,6 +123,10 @@ static StockHolding *find_or_create_holding(User *user, const char *symbol) {
     return holding;
 }
 
+/* 함수 목적: stock_deal 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, symbol, qty, is_buy
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
     ensure_seeded();
 
@@ -160,6 +178,10 @@ int stock_deal(const char *username, const char *symbol, int qty, int is_buy) {
 
 
 
+/* 함수 목적: stock_load_from_csv 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: path
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void stock_load_from_csv(const char *path) {
     FILE *fp = fopen(path, "r");
     if (!fp) {
@@ -312,6 +334,10 @@ static void stock_load_from_csv(const char *path) {
 }
 
 
+/* 함수 목적: ensure_seeded 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void ensure_seeded(void) {
     if (g_seeded) return;
 
@@ -326,6 +352,10 @@ static void ensure_seeded(void) {
     g_seeded = 1;
 }
 
+/* 함수 목적: stock_maybe_update_by_time 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void stock_maybe_update_by_time(void) {
     ensure_seeded();
 
@@ -383,6 +413,10 @@ static Stock *find_stock(const char *symbol) {
     return NULL;
 }
 
+/* 함수 목적: stock_list 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: out_arr, out_n
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int stock_list(Stock *out_arr, int *out_n) {
     ensure_seeded();
     if (!out_arr || !out_n) return 0;
@@ -408,6 +442,10 @@ int stock_list(Stock *out_arr, int *out_n) {
     return 1;
 }
 
+/* 함수 목적: stock_get_history 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: symbol, out_buf, max_len
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int stock_get_history(const char *symbol, int *out_buf, int max_len) {
     ensure_seeded();
     if (!symbol || !out_buf || max_len <= 0) return 0;
@@ -426,6 +464,10 @@ int stock_get_history(const char *symbol, int *out_buf, int max_len) {
 
 /* data/stocks/(username).csv 에 저장된
  * "종목명,보유량" 들을 user->holdings[] 로 불러온다
+ */
+/* 함수 목적: user_stock_load_holdings 함수는 stock 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: user
+ * 반환 값: 함수 수행 결과를 나타냅니다.
  */
 static void user_stock_load_holdings(User *user) {
     if (!user) return;

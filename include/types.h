@@ -1,3 +1,7 @@
+/*
+ * 파일 목적: 공용 타입 및 선언 제공
+ * 작성자: 박성우
+ */
 #ifndef TYPES_H
 #define TYPES_H
 
@@ -6,13 +10,13 @@
 /* -------------------------------------------------------------------------- */
 /*  Macro configuration                                                        */
 /* -------------------------------------------------------------------------- */
+
 #define MAX_ITEM_SIZE 100
 #define MAX_NAME_LEN 30
 #define MAX_STUDENTS 50
 #define MAX_MISSIONS 128
 #define MAX_NOTIFICATIONS 256
 #define MAX_HOLDINGS 16
-
 #define CP_DEFAULT 1
 #define BOX_WIDTH 40
 #define BOX_HEIGHT 20
@@ -20,10 +24,10 @@
 /* -------------------------------------------------------------------------- */
 /*  Enumerations                                                               */
 /* -------------------------------------------------------------------------- */
-typedef enum rank {
+typedef enum {
     STUDENT = 0,
     TEACHER
-} rank_t;
+} RankEnum;
 
 /* -------------------------------------------------------------------------- */
 /*  Forward declarations                                                       */
@@ -35,6 +39,8 @@ typedef struct Stock Stock;
 typedef struct Bank Bank;
 typedef struct StockHolding StockHolding;
 typedef struct User User;
+typedef struct AssetPoint AssetPoint;
+typedef struct Seat Seat;
 
 typedef struct StockHolding {
     char symbol[32];
@@ -88,7 +94,7 @@ struct User {
     Bank bank;
     char pw[100];
     char id[50];
-    rank_t isadmin;
+    RankEnum isadmin;
     Item items[10];
     int completed_missions;
     int total_missions;
@@ -97,5 +103,14 @@ struct User {
     StockHolding holdings[MAX_HOLDINGS];
     int holding_count;
 };
+
+struct AssetPoint{
+    long timestamp;
+    long total_asset;
+}; 
+
+struct {
+    char name[64];
+} Seat;
 
 #endif /* TYPES_H */

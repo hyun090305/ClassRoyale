@@ -1,3 +1,9 @@
+/*
+ * 파일 목적: notification 도메인 기능 구현
+ * 작성자: ChatGPT
+ * 작성일: 2024-06-13
+ * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ */
 #include "../../include/domain/notification.h"
 
 #include <stdio.h>
@@ -18,6 +24,10 @@ static Notification g_notifications[MAX_NOTIFICATIONS];
 static int g_notification_count = 0;
 static int g_notification_cursor = 0;
 
+/* 함수 목적: notify_push 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, message
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 void notify_push(const char *username, const char *message) {
     if (!username || !message) {
         return;
@@ -43,6 +53,10 @@ void notify_push(const char *username, const char *message) {
     csv_append_row(path, "%lld,%s", (long long)ts, msgbuf);
 }
 
+/* 함수 목적: notify_recent 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, limit
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int notify_recent(const char *username, int limit) {
     if (!username || limit <= 0) {
         return 0;
@@ -58,6 +72,10 @@ int notify_recent(const char *username, int limit) {
     return shown;
 }
 
+/* 함수 목적: notify_recent_to_buf 함수는 notification 도메인 기능 구현에서 필요한 동작을 수행합니다.
+ * 매개변수: username, limit, buf, buflen
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 int notify_recent_to_buf(const char *username, int limit, char *buf, size_t buflen) {
     if (!username || !buf || buflen == 0) return -1;
     char path[512];

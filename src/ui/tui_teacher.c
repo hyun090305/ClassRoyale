@@ -1,8 +1,12 @@
-#include "../../include/ui/tui_teacher.h"
+/*
+ * 파일 목적: tui_teacher 관련 터미널 UI 로직 구현
+ * 작성자: 박시유
+ */
 
 #include <stdlib.h>
 #include <string.h>
 
+#include "../../include/ui/tui_teacher.h"
 #include "../../include/domain/account.h"
 #include "../../include/domain/admin.h"
 #include "../../include/domain/mission.h"
@@ -12,6 +16,10 @@
 #include "../../include/ui/tui_ncurses.h"
 #include "../../include/core/csv.h"
 
+/* 함수 목적: 학생 계정들을 수집하여 제공된 배열에 저장
+ * 매개변수: out[], max_items
+ * 반환 값: 학생수를 반환
+ */
 static int collect_students(User *out[], int max_items) {
     int count = 0;
     size_t total = user_count();
@@ -27,6 +35,10 @@ static int collect_students(User *out[], int max_items) {
     return count;
 }
 
+/* 함수 목적: 선생님 대시보드를 그림
+ * 매개변수: user, status
+ * 반환 값: 없음
+ */
 static void draw_teacher_dashboard(User *user, const char *status) {
     erase();
     mvprintw(1, (COLS - 32) / 2, "Class Royale - Teacher Dashboard");
@@ -85,6 +97,10 @@ static void draw_teacher_dashboard(User *user, const char *status) {
     refresh();
 }
 
+/* 함수 목적: 미션 만드는 창을 그리고 새 미션을 생성
+ * 매개변수: 없음
+ * 반환 값: 없음
+ */
 static void handle_new_mission(void) {
     int height = 14;
     int width = 64;
@@ -126,6 +142,10 @@ static void handle_new_mission(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: 학생들에게 방송 메시지 전송
+ * 매개변수: 없음
+ * 반환 값: 함수 수행 결과를 나타냅니다.
+ */
 static void handle_broadcast(void) {
     int height = 8;
     int width = 60;
@@ -138,6 +158,10 @@ static void handle_broadcast(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: QOTD 할당 창을 그리고 QOTD를 할당
+ * 매개변수: 없음
+ * 반환 값: 없음
+ */
 static void handle_qotd_assign(void) {
     int height = 18;
     int width = 72;
@@ -227,6 +251,10 @@ static void handle_qotd_assign(void) {
     }
 }
 
+/* 함수 목적: 학생 목록을 그리고 학생 잔액을 관리
+ * 매개변수: 없음
+ * 반환 값: 없음
+ */
 static void handle_student_list(void) {
     User *students[MAX_STUDENTS];
     int count = collect_students(students, MAX_STUDENTS);
@@ -321,6 +349,10 @@ static void handle_student_list(void) {
     tui_common_destroy_box(win);
 }
 
+/* 함수 목적: 선생님 화면에서 메인 루프를 실행
+ * 매개변수: user
+ * 반환 값: 없음
+ */
 void tui_teacher_loop(User *user) {
     if (!user) {
         return;
