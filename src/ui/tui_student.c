@@ -43,6 +43,7 @@ typedef struct {
 
 // 이 파일 안에서만 쓰고 싶다면 둘 다 static
 static void handle_class_seats_view(User *user);
+static void handle_tutorial_view(User *user);
 
 /* forward declarations for mission play screens - MUST be before handle_mission_board */
 static void handle_mission_play_typing(User *user, Mission *m);
@@ -433,7 +434,7 @@ static void draw_dashboard(User *user, const char *status) {
     render_news(news_win, user);
     tui_common_destroy_box(news_win);
 
-    tui_common_draw_help("m:Missions s:Shop a:Account t:Transactions d:QOTD n:Messages q:Logout");
+    tui_common_draw_help("m:Missions s:Shop a:Account t:Transactions d:QOTD n:Messages r:Tutorial q:Logout");
     tui_ncurses_draw_status(status);
     refresh();
 }
@@ -1250,6 +1251,11 @@ void tui_student_loop(User *user) {
                 handle_message_center(user);
                 status = "Checked messages";
                 break;
+            case 'r':
+            case 'R':
+                handle_tutorial_view(user);
+                status = "Viewed tutorial";
+                break;
             case 'q':
             case 'Q':
                 running = 0;
@@ -1428,8 +1434,183 @@ static void handle_class_seats_view(User *user) {
     tui_common_destroy_box(win);
 }
 
+/* Tutorial viewer: draws into provided WINDOW. This function lists three
+ * choices (Missions & QOTD, Shop, Cash & Deposit). Use arrow keys and
+ * Enter to open a topic, q to close the tutorial. Important keywords
+ * are highlighted in yellow for easy reading by young students. */
+static void handle_tutorial_view(User *user) {
+    int height = LINES - 6;
+    int width  = COLS - 10;
+    WINDOW *win = tui_common_create_box(
+        height,
+        width,
+        3,
+        5,
+        "Class Seats (q to close)"
+    );
+    if (!win) return;
+    int maxy = getmaxy(win);
+    int maxx = getmaxx(win);
 
+    /* prepare a yellow highlight color pair if colors are available.
+     * Use yellow background with black text for better visibility in some terminals. */
+    if (has_colors()) {
+        /* pair 2 reserved for tutorial highlight: yellow text on black background */
+        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+    }
 
+    const char *options[] = {"Missions & QOTD", "Shop", "Cash & Deposit"};
+    int opt_count = 3;
+    int highlight = 0;
+    int running = 1;
+
+    while (running) {
+        werase(win);
+        box(win, 0, 0);
+        mvwprintw(win, 0, 2, " Class Royale Tutorial ");
+        mvwprintw(win, 1, 2, "Use Up/Down to choose, Enter to read, q to close");
+
+        for (int i = 0; i < opt_count; ++i) {
+            if (i == highlight) wattron(win, A_REVERSE);
+            mvwprintw(win, 3 + i, 4, "%s", options[i]);
+            if (i == highlight) wattroff(win, A_REVERSE);
+        }
+
+        wrefresh(win);
+        int ch = wgetch(win);
+        if (ch == KEY_UP) {
+            highlight = (highlight - 1 + opt_count) % opt_count;
+        } else if (ch == KEY_DOWN) {
+            highlight = (highlight + 1) % opt_count;
+        } else if (ch == '\n' || ch == '\r') {
+            /* show selected topic */
+            werase(win);
+            box(win, 0, 0);
+            if (highlight == 0) {
+                mvwprintw(win, 0, 2, " Missions & QOTD ");
+                mvwprintw(win, 2, 2, "Missions are small activities you can do to earn Cr.");
+                /* print line with colored keyword */
+                mvwprintw(win, 4, 2, "- ");
+                /* print highlighted keyword then rest of line */
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "Missions");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, ": complete fun tasks (typing, math) to get rewards.");
+
+                mvwprintw(win, 5, 2, "- ");
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "QOTD");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, ": a short quiz you can answer once each day.");
+
+                mvwprintw(win, 7, 2, "When you finish a mission or QOTD you earn Cr (cash).");
+                mvwprintw(win, 9, 2, "Try to do them every day to practice and collect rewards!");
+            } else if (highlight == 1) {
+                mvwprintw(win, 0, 2, " Shop ");
+                mvwprintw(win, 2, 2, "The Shop is where you can spend Cr to buy items.");
+                mvwprintw(win, 4, 2, "- Items: things you can use or show off (cost is shown).");
+
+                mvwprintw(win, 6, 2, "- ");
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "Stocks");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, ": tiny pieces of a company. Prices can go up or down.");
+
+                mvwprintw(win, 8, 2, "- ");
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "Seat Coupons");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, " : lets you reserve a special seat in class.");
+
+                mvwprintw(win, 10, 2, "You can try to buy stocks to grow your Cr, but prices may fall too.");
+            } else if (highlight == 2) {
+                mvwprintw(win, 0, 2, " Cash & Deposit ");
+                mvwprintw(win, 2, 2, "You get Cash when you finish missions or QOTD.");
+                mvwprintw(win, 4, 2, "Deposit is money you put in the bank to keep it safe.");
+
+                mvwprintw(win, 6, 2, "- ");
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "Cash");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, " : money you carry and spend right away.");
+
+                mvwprintw(win, 8, 2, "- ");
+                if (has_colors()) {
+                    wattron(win, COLOR_PAIR(2));
+                    wattron(win, A_BOLD);
+                } else {
+                    wattron(win, A_UNDERLINE);
+                }
+                wprintw(win, "Deposit");
+                if (has_colors()) {
+                    wattroff(win, A_BOLD);
+                    wattroff(win, COLOR_PAIR(2));
+                } else {
+                    wattroff(win, A_UNDERLINE);
+                }
+                wprintw(win, " : money you keep in the bank");
+
+                mvwprintw(win, 10, 2, "The bank can give a small extra called interest over time.");
+                mvwprintw(win, 12, 2, "That means your deposit can slowly grow, like a tiny present!");
+            }
+            mvwprintw(win, maxy - 2, 2, "Press any key to go back to the tutorial menu");
+            wrefresh(win);
+            wgetch(win);
+        } else if (ch == 'q' || ch == 'Q' || ch == 27) {
+            running = 0;
+        }
+    }
+}
 /* --- Mission play screens (typing practice / math quiz) --- */
 
 static void append_typing_leaderboard(const char *username, int mission_id, double wpm, double accuracy) {
