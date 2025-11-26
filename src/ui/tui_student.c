@@ -2356,4 +2356,3 @@ static void handle_stocks_view(User *user) {
 
     tui_common_destroy_box(win);
 }
-
