@@ -1,12 +1,10 @@
 /*
- * 파일 목적: tui_student 관련 터미널 UI 로직 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 파일 목적: 학생 관련 함수들 구현
+ * 작성자: 박성우,이현준,박시유,채연우
  */
-#include "../../include/ui/tui_student.h"
 
 #include <stdlib.h>
+#include <stdbool.h> 
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -37,21 +35,11 @@
 #include "../../include/domain/message.h"
 #include "../../include/domain/qotd.h"
 
-
+// 최대 거래 내역 개수
 #define ACCOUNT_STATS_MAX_TX 256
 
-typedef struct {
-    long timestamp;
-    long total_asset;
-} AssetPoint;
-
-#include <stdbool.h>   // bool 쓸 거면 필요
-
-// 이 파일 안에서만 쓰고 싶다면 둘 다 static
 static void handle_class_seats_view(User *user);
 static void handle_tutorial_view(User *user);
-
-/* forward declarations for mission play screens - MUST be before handle_mission_board */
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
 static void handle_stocks_view(User *user);
@@ -59,9 +47,9 @@ static void handle_account_statistics(User *user);
 static void handle_transactions_view(User *user);
 static void handle_stock_graph_view(const Stock *stock);
 
-/* 함수 목적: user_has_mission 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: user 에게 미션이 있는지 확인한다.
  * 매개변수: user, mission_id
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 미션 존재 : 1 / 미션 부재 : 0
  */
 static int user_has_mission(User *user, int mission_id) {
     if (!user) return 0;
@@ -71,17 +59,14 @@ static int user_has_mission(User *user, int mission_id) {
     return 0;
 }
 
-/* 함수 목적: ensure_student_seed 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: user 의 기본값들을 재설정한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void ensure_student_seed(User *user) {
     if (!user || user->mission_count > 0) {
         return;
     }
-    /* reload mission catalog from disk at each login/start of student UI */
-    mission_refresh_catalog();
-
     /* reload mission catalog from disk at each login/start of student UI */
     mission_refresh_catalog();
 
@@ -113,9 +98,9 @@ static void ensure_student_seed(User *user) {
 static char *qotd_solved_users[256];
 static int qotd_solved_count = 0;
 
-/* 함수 목적: qotd_is_solved 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: qotd 가 해결되었는지 확인한다.
  * 매개변수: name
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 해결 : 1 / 미해결 : 0
  */
 static int qotd_is_solved(const char *name) {
     if (!name) return 0;
@@ -126,9 +111,9 @@ static int qotd_is_solved(const char *name) {
 }
 
 
-/* 함수 목적: qotd_runtime_clear 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 문제풀이 진행도를 초기화한다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void qotd_runtime_clear(void) {
     for (int i = 0; i < qotd_solved_count; ++i) {
@@ -138,9 +123,9 @@ static void qotd_runtime_clear(void) {
     qotd_solved_count = 0;
 }
 
-/* 함수 목적: qotd_runtime_mark_solved 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 푼 사람들을 런타임 캐시에 표시한다.
  * 매개변수: name
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void qotd_runtime_mark_solved(const char *name) {
     if (!name || qotd_solved_count >= (int)(sizeof(qotd_solved_users)/sizeof(qotd_solved_users[0]))) return;
@@ -158,9 +143,9 @@ static void qotd_runtime_mark_solved(const char *name) {
  * - wrong => show "Try again" at bottom and reduce reward by 5Cr
  * - press 'q' to exit viewer
  */
-/* 함수 목적: handle_qotd_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: qotd 화면 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_qotd_view(User *user) {
     if (!user) return;
@@ -269,9 +254,9 @@ static void handle_qotd_view(User *user) {
 }
 // --- end QOTD integration ---
 
-/* 함수 목적: render_mission_preview 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 미션 미리보기 화면을 구현한다.
  * 매개변수: win, user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void render_mission_preview(WINDOW *win, const User *user) {
     mvwprintw(win, 1, 2, "Completed %d of %d missions", user->completed_missions, user->mission_count);
@@ -301,7 +286,7 @@ static void render_mission_preview(WINDOW *win, const User *user) {
     wrefresh(win);
 }
 
-/* 함수 목적: render_shop_preview 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점 미리보기 화면을 구현합니다.
  * 매개변수: win
  * 반환 값: 함수 수행 결과를 나타냅니다.
  */
@@ -326,9 +311,9 @@ static void render_shop_preview(WINDOW *win) {
 /* forward declare QOTD helper so render_news can check per-user state */
 static int qotd_is_solved(const char *name);
 
-/* 함수 목적: render_news 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 뉴스 미리보기 화면을 구현한다.
  * 매개변수: win, user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void render_news(WINDOW *win, const User *user) {
     if (!win) return;
@@ -389,9 +374,9 @@ static void render_news(WINDOW *win, const User *user) {
     wrefresh(win);
 }
 
-/* 함수 목적: draw_dashboard 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 메인 화면을 그린다.
  * 매개변수: user, status
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void draw_dashboard(User *user, const char *status) {
     erase();
@@ -485,9 +470,9 @@ static void draw_dashboard(User *user, const char *status) {
     refresh();
 }
 
-/* 함수 목적: handle_mission_board 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 미션 보드를 그리고 화면 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_mission_board(User *user) {
     if (!user) {
@@ -576,9 +561,9 @@ static void handle_mission_board(User *user) {
 }
 
 
-/* 함수 목적: handle_shop_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 상점 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_shop_view(User *user) {
     Shop shops[2];
@@ -767,9 +752,9 @@ static void handle_shop_view(User *user) {
     tui_common_destroy_box(win);
 }
 
-/* 함수 목적: account_reason_matches 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: reason 문자열이 prefix로 시작하는지 확인하는 함수
  * 매개변수: reason, prefix
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 맞으면 1, 아니면 0
  */
 static int account_reason_matches(const char *reason, const char *prefix) {
     if (!reason || !prefix) return 0;
@@ -778,9 +763,9 @@ static int account_reason_matches(const char *reason, const char *prefix) {
     return strncmp(reason, prefix, need) == 0;
 }
 
-/* 함수 목적: collect_asset_points 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 거래 내역 CSV를 읽어 시간별 총자산 그래프용 데이터를 만듬
  * 매개변수: user, points, max_points
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: AssetPoint 배열에 채워진 포인트 개수
  */
 static int collect_asset_points(User *user, AssetPoint *points, int max_points) {
     if (!user || !points || max_points <= 0) return 0;
@@ -883,9 +868,9 @@ static int collect_asset_points(User *user, AssetPoint *points, int max_points) 
     return copy;
 }
 
-/* 함수 목적: handle_account_statistics 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 자산 통계 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_account_statistics(User *user) {
     if (!user) return;
@@ -972,9 +957,9 @@ static void handle_account_statistics(User *user) {
 }
 
 
-/* 함수 목적: handle_account_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 계좌 관리 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_account_view(User *user) {
     int height = LINES - 4;
@@ -1038,9 +1023,9 @@ static void handle_account_view(User *user) {
     tui_common_destroy_box(win);
 }
 
-/* 함수 목적: handle_transactions_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 거래 내역 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_transactions_view(User *user) {
     if (!user) return;
@@ -1119,9 +1104,9 @@ static void handle_transactions_view(User *user) {
     tui_common_destroy_box(win);
 }
 
-/* 함수 목적: trim_whitespace 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 문자열의 앞뒤 공백을 제거한다.
  * 매개변수: text
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void trim_whitespace(char *text) {
     if (!text) return;
@@ -1137,9 +1122,9 @@ static void trim_whitespace(char *text) {
     }
 }
 
-/* 함수 목적: handle_message_center 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 메시지 센터 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_message_center(User *user) {
     if (!user) return;
@@ -1280,9 +1265,9 @@ static void handle_message_center(User *user) {
     tui_common_destroy_box(win);
 }
 
-/* 함수 목적: tui_student_loop 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 학생 대시보드 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_student_loop(User *user) {
     if (!user) {
@@ -1356,16 +1341,12 @@ void tui_student_loop(User *user) {
 /* forward declarations for mission play screens */
 static void handle_mission_play_typing(User *user, Mission *m);
 static void handle_mission_play_math(User *user, Mission *m);
-
-typedef struct {
-    char name[64];
-} Seat;
-
+/* --- Class seats management --- */
 static Seat g_seats[31]; // 1~30까지 사용
 
-/* 함수 목적: load_seats_csv 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: seats.csv 파일을 읽어 g_seats 배열을 채운다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void load_seats_csv(void) {
     FILE *fp = fopen("data/seats.csv", "r");
@@ -1398,9 +1379,9 @@ static void load_seats_csv(void) {
 }
 
 
-/* 함수 목적: save_seats_csv 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: g_seats 배열을 seats.csv 파일에 저장한다.
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void save_seats_csv(void) {
     FILE *fp = fopen("data/seats.csv", "w");
@@ -1414,9 +1395,9 @@ void save_seats_csv(void) {
 }
 
 /* --- Class seats view (stub) --- */
-/* 함수 목적: handle_class_seats_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: class seats 관리 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_class_seats_view(User *user) {
     load_seats_csv();
@@ -1561,9 +1542,9 @@ static void handle_class_seats_view(User *user) {
  * choices (Missions & QOTD, Shop, Cash & Deposit). Use arrow keys and
  * Enter to open a topic, q to close the tutorial. Important keywords
  * are highlighted in yellow for easy reading by young students. */
-/* 함수 목적: handle_tutorial_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 유저의 튜토리얼 화면을 그리고 루프를 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_tutorial_view(User *user) {
     int height = LINES - 6;
@@ -1740,9 +1721,9 @@ static void handle_tutorial_view(User *user) {
 }
 /* --- Mission play screens (typing practice / math quiz) --- */
 
-/* 함수 목적: append_typing_leaderboard 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 타자연습 리더보드 파일에 결과를 추가한다.
  * 매개변수: username, mission_id, wpm, accuracy
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void append_typing_leaderboard(const char *username, int mission_id, double wpm, double accuracy) {
     csv_ensure_dir("data");
@@ -1753,9 +1734,9 @@ static void append_typing_leaderboard(const char *username, int mission_id, doub
     fclose(fp);
 }
 
-/* 함수 목적: append_math_leaderboard 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 수학 퀴즈 리더보드 파일에 결과를 추가한다.
  * 매개변수: username, mission_id, total_seconds
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void append_math_leaderboard(const char *username, int mission_id, double total_seconds) {
     csv_ensure_dir("data");
@@ -1766,9 +1747,9 @@ static void append_math_leaderboard(const char *username, int mission_id, double
 }
 
 /* comparator for math leaderboard sort (ascending time) */
-/* 함수 목적: cmp_math_time 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 걸린 시간 비교
  * 매개변수: a, b
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 걸린 시간 비교 결과
  */
 static int cmp_math_time(const void *a, const void *b) {
     const double ta = ((const struct { char name[128]; double time; } *)a)->time;
@@ -1780,9 +1761,9 @@ static int cmp_math_time(const void *a, const void *b) {
 
 /* typing leaderboard entry type and comparator (WPM desc) */
 typedef struct { char name[128]; double wpm; double acc; } typing_lbent;
-/* 함수 목적: cmp_typing_wpm_desc 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 타자 랭킹 정렬용 비교 함수
  * 매개변수: a, b
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 랭킹 비교 결과
  */
 static int cmp_typing_wpm_desc(const void *a, const void *b) {
     const typing_lbent *A = (const typing_lbent *)a;
@@ -1800,9 +1781,9 @@ static int cmp_typing_wpm_desc(const void *a, const void *b) {
    - After finishing, compute elapsed, accuracy, WPM and write leaderboard.
    - Press Enter on summary to mark mission complete and exit.
 */
-/* 함수 목적: handle_mission_play_typing 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 타자연습 관련 미션을 처리한다.
  * 매개변수: user, m
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_mission_play_typing(User *user, Mission *m) {
     if (!user || !m) return;
@@ -2013,17 +1994,17 @@ static void handle_mission_play_typing(User *user, Mission *m) {
    - On correct, move to next. After 7 correct, compute total time, append leaderboard.
    - On summary Enter, mark mission complete and exit.
 */
-/* 함수 목적: make_random_int 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 아무 정수 생성
  * 매개변수: max_plus_one
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 랜덤 정수
  */
 static int make_random_int(int max_plus_one) {
     return rand() % max_plus_one;
 }
 
-/* 함수 목적: handle_mission_play_math 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 수학 퀴즈 화면 처리
  * 매개변수: user, m
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_mission_play_math(User *user, Mission *m) {
     if (!user || !m) return;
@@ -2176,9 +2157,9 @@ static void handle_mission_play_math(User *user, Mission *m) {
    launch the correct play screen based on m->type */
 
 
-/* 함수 목적: get_owned_qty 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 보유한 주식 수량을 반환한다.
  * 매개변수: user, symbol
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 보유 수량
  */
 static int get_owned_qty(User *user, const char *symbol) {
     if (!user || !symbol) return 0;
@@ -2195,9 +2176,9 @@ static int get_owned_qty(User *user, const char *symbol) {
 
 /* 선택한 한 종목의 log[] 전체를 그래프(@)로 보여주는 화면 */
 /* log 길이가 화면보다 길면 ← / → 로 스크롤 가능 */
-/* 함수 목적: handle_stock_graph_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식 그래프를 그려준다.
  * 매개변수: stock
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_stock_graph_view(const Stock *stock) {
     if (!stock) {
@@ -2347,14 +2328,6 @@ static void handle_stock_graph_view(const Stock *stock) {
                 prev_y = y;
 }
         }
-            // 막대그래프
-        //     for (int k = 0; k < bar_h; ++k) {
-        //         int y = plot_bottom - k;
-        //         if (y < plot_top) break; 
-        //         mvwaddch(win, y, screen_x, '@');
-        //     }
-        // }
-
 
         /* 아래쪽 안내 & 현재 구간 표시 */
         mvwprintw(win, height - 2, 2,
@@ -2383,9 +2356,9 @@ static void handle_stock_graph_view(const Stock *stock) {
     tui_common_destroy_box(win);
 }
 
-/* 함수 목적: handle_stocks_view 함수는 tui_student 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 주식 목록 및 매수/매도 화면을 처리한다.
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void handle_stocks_view(User *user) {
     Stock stocks[16];

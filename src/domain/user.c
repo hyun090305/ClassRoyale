@@ -88,7 +88,7 @@ static void seed_defaults(void) {
         snprintf(u.pw,   sizeof(u.pw),   "%s", pw);
 
         // role 처리 (기본 STUDENT)
-        rank_t role = STUDENT;
+        RankEnum role = STUDENT;
         if (role_tok) {
             // 허용 형식: 숫자(1=TEACHER), 혹은 'T'/'t' 시작 또는 'teacher' 등
             if (role_tok[0] == '1' || role_tok[0] == 'T' || role_tok[0] == 't') {

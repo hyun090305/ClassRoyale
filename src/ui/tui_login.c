@@ -57,7 +57,7 @@ static void draw_welcome(int highlight, const char *status_line) {
  * 매개변수: form
  * 반환 값: 함수 수행 결과를 나타냅니다.
  */
-static rank_t prompt_role(WINDOW *form) {
+static RankEnum prompt_role(WINDOW *form) {
     const char *roles[] = {"Student", "Teacher"};
     int highlight = 0;
     while (1) {
@@ -189,7 +189,7 @@ static void prompt_register(void) {
         tui_common_destroy_box(form);
         return;
     }
-    rank_t role = prompt_role(form);
+    RankEnum role = prompt_role(form);
     User newbie = {0};
     snprintf(newbie.name, sizeof(newbie.name), "%s", username);
     snprintf(newbie.id, sizeof(newbie.id), "%s", username);
