@@ -43,7 +43,7 @@ void tui_common_destroy_box(WINDOW *win) {
     delwin(win);
 }
 
-/* 함수 목적: 
+/* 함수 목적: 메뉴 목록을 화면에 그려주는 함수
  * 매개변수: win, entries, entry_count, highlight
  * 반환 값: 없음
  */
@@ -63,9 +63,9 @@ void tui_common_draw_menu(WINDOW *win, const char **entries, int entry_count, in
     wrefresh(win);
 }
 
-/* 함수 목적: tui_common_draw_progress 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 진행률 표시줄을 그려주는 함수
  * 매개변수: win, row, col, width, percent
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_common_draw_progress(WINDOW *win, int row, int col, int width, int percent) {
     if (!win || width <= 0) {
@@ -91,9 +91,9 @@ void tui_common_draw_progress(WINDOW *win, int row, int col, int width, int perc
     wrefresh(win);
 }
 
-/* 함수 목적: tui_common_draw_help 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 도움말 텍스트를 화면 하단에 그려주는 함수
  * 매개변수: text
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_common_draw_help(const char *text) {
     int row = LINES - 1;
@@ -106,9 +106,9 @@ void tui_common_draw_help(const char *text) {
     refresh();
 }
 
-/* 함수 목적: tui_common_print_multiline 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 여러 줄의 텍스트를 지정된 위치에 출력하는 함수
  * 매개변수: win, row, col, lines, line_count
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_common_print_multiline(WINDOW *win, int row, int col, const char *const *lines, size_t line_count) {
     if (!win || !lines) {

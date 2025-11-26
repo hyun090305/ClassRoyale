@@ -1312,11 +1312,6 @@ void tui_student_loop(User *user) {
                 tui_stock_show_market(user);
                 status = "Completed stock trade";
                 break;
-            case 'u':
-            case 'U':
-                tui_auction_show_house(user);
-                status = "Active in auction house";
-                break;
             case 'n':
             case 'N':
                 handle_message_center(user);
