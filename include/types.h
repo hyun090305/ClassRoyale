@@ -109,8 +109,8 @@ struct AssetPoint{
     long total_asset;
 }; 
 
-struct {
+struct Seat{
     char name[64];
-} Seat;
+};
 
 #endif /* TYPES_H */

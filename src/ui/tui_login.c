@@ -1,8 +1,6 @@
 /*
  * 파일 목적: tui_login 관련 터미널 UI 로직 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 채연우
  */
 #include "../../include/ui/tui_login.h"
 
@@ -15,11 +13,11 @@
 #include "../../include/domain/economy.h"
 #include "../../include/ui/tui_common.h"
 #include "../../include/ui/tui_ncurses.h"
-static void user_stock_load_holdings(User *user);
 
-/* 함수 목적: draw_welcome 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+static void user_stock_load_holdings(User *user);
+/* 함수 목적: 로그인 화면에서 환영 메시지와 메뉴를 그리는 함수
  * 매개변수: highlight, status_line
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void draw_welcome(int highlight, const char *status_line) {
     static WINDOW *win = NULL;
@@ -53,9 +51,9 @@ static void draw_welcome(int highlight, const char *status_line) {
     wrefresh(win);
 }
 
-/* 함수 목적: prompt_role 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 선생이나 학생을 결정하는 함수
  * 매개변수: form
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 직급을 반환
  */
 static RankEnum prompt_role(WINDOW *form) {
     const char *roles[] = {"Student", "Teacher"};
@@ -85,9 +83,9 @@ static RankEnum prompt_role(WINDOW *form) {
     }
 }
 
-/* 함수 목적: trim_whitespace 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 문자열의 앞뒤 공백을 제거하는 함수
  * 매개변수: s
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void trim_whitespace(char *s) {
     if (!s) return;
@@ -110,6 +108,10 @@ enum {
     PW_FIELD_CAP = sizeof(((User *)0)->pw)
 };
 
+/* 함수 목적: 로그인을 진행하는 함수
+ * 매개변수: 없음
+ * 반환 값: User 포인터를 반환
+ */
 static User *prompt_login(void) {
     int width = 60;
     int height = 12;
@@ -159,9 +161,9 @@ static User *prompt_login(void) {
     return user;
 }
 
-/* 함수 목적: prompt_register 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 회원가입을 진행하는 함수
  * 매개변수: 없음
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void prompt_register(void) {
     int width = 60;
@@ -265,9 +267,9 @@ User *tui_login_flow(void) {
 /* data/stocks/(username).csv 에 저장된
  * "종목명,보유량" 들을 user->holdings[] 로 불러온다
  */
-/* 함수 목적: user_stock_load_holdings 함수는 tui_login 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 사용자의 주식 정보를 불러오는 함수
  * 매개변수: user
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 static void user_stock_load_holdings(User *user) {
     if (!user) return;

@@ -1,13 +1,14 @@
 /*
  * 파일 목적: tui_common 관련 터미널 UI 로직 구현
- * 작성자: ChatGPT
- * 작성일: 2024-06-13
- * 수정 이력: 2024-06-13 ChatGPT - 주석 규칙 적용
+ * 작성자: 이현준
  */
 #include "../../include/ui/tui_common.h"
-
 #include <string.h>
 
+/* 함수 목적: 박스를 만드는 함수
+ * 매개변수: height, width, y, x, *title
+ * 반환 값: 새로 만든 박스 윈도우의 주소
+ */
 WINDOW *tui_common_create_box(int height, int width, int y, int x, const char *title) {
     WINDOW *win = newwin(height, width, y, x);
     keypad(win, TRUE);
@@ -21,9 +22,9 @@ WINDOW *tui_common_create_box(int height, int width, int y, int x, const char *t
     return win;
 }
 
-/* 함수 목적: tui_common_destroy_box 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 박스를 파괴하는 함수
  * 매개변수: win
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_common_destroy_box(WINDOW *win) {
     if (!win) {
@@ -42,9 +43,9 @@ void tui_common_destroy_box(WINDOW *win) {
     delwin(win);
 }
 
-/* 함수 목적: tui_common_draw_menu 함수는 tui_common 관련 터미널 UI 로직 구현에서 필요한 동작을 수행합니다.
+/* 함수 목적: 
  * 매개변수: win, entries, entry_count, highlight
- * 반환 값: 함수 수행 결과를 나타냅니다.
+ * 반환 값: 없음
  */
 void tui_common_draw_menu(WINDOW *win, const char **entries, int entry_count, int highlight) {
     if (!win || !entries) {
