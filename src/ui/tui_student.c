@@ -1278,7 +1278,7 @@ typedef struct {
 static Seat g_seats[31]; // 1~30까지 사용
 
 static void load_seats_csv(void) {
-    FILE *fp = fopen("data/seats.csv", "r");
+    FILE *fp = fopen("seats.csv", "r");
     if (!fp) return;
 
     int num;
@@ -1290,7 +1290,7 @@ static void load_seats_csv(void) {
     fclose(fp);
 }
 void save_seats_csv(void) {
-    FILE *fp = fopen("data/seats.csv", "w");
+    FILE *fp = fopen("seats.csv", "w");
     if (!fp) return;
 
     for (int i = 1; i <= 30; i++) {
@@ -1398,7 +1398,7 @@ static void handle_class_seats_view(User *user) {
                 save_seats_csv();
                 mvwprintw(win, height - 3, 2,
                     "Seat %d cancelled.", cursor);
-                user->bank.cash += 10000;
+                user->bank.cash += 1000;
                 wrefresh(win);
                 napms(500);
                 break;
@@ -1411,7 +1411,7 @@ static void handle_class_seats_view(User *user) {
 
                 mvwprintw(win, height - 3, 2,
                     "Seat %d reserved for %s   ", cursor, user->name);
-                user->bank.cash -= 10000;  
+                user->bank.cash -= 1000;  
                 wrefresh(win);
                 napms(500);
             } else {
